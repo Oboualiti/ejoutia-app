@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { categories, conditions } from "../mock/options";
 
@@ -24,36 +26,12 @@ function buildPhotoFile(asset, index) {
   const extension = uri.split(".").pop()?.toLowerCase() || "jpg";
   const type = asset.mimeType || `image/${extension === "jpg" ? "jpeg" : extension}`;
 
-  // Normalise les donnees pour l'affichage et pour l'ajout dans FormData.
   return {
     id: `${uri}-${index}-${Date.now()}`,
     uri,
     name: asset.fileName || `photo-${Date.now()}-${index}.${extension}`,
     type,
   };
-}
-
-function ChoiceGroup({ options, value, onChange, placeholder }) {
-  return (
-    <View style={styles.choiceGroup}>
-      {options.map((option) => {
-        const active = value === option;
-
-        return (
-          <TouchableOpacity
-            key={option}
-            onPress={() => onChange(option)}
-            style={[styles.choiceChip, active && styles.choiceChipActive]}
-          >
-            <Text style={[styles.choiceText, active && styles.choiceTextActive]}>
-              {option}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-      {!value ? <Text style={styles.helperText}>{placeholder}</Text> : null}
-    </View>
-  );
 }
 
 function FieldError({ message }) {
@@ -64,7 +42,102 @@ function FieldError({ message }) {
   return <Text style={styles.errorText}>{message}</Text>;
 }
 
-export default function CreateListingScreen({ navigation }) {
+function SelectSheet({ visible, title, subtitle, options, onClose, onSelect }) {
+  return (
+    <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={onClose} />
+        <View style={styles.bottomSheet}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>{title}</Text>
+          <Text style={styles.sheetSubtitle}>{subtitle}</Text>
+
+          {options.map((option) => (
+            <TouchableOpacity
+              key={option}
+              style={styles.sheetOption}
+              onPress={() => onSelect(option)}
+            >
+              <Text style={styles.sheetOptionText}>{option}</Text>
+            </TouchableOpacity>
+          ))}
+
+          <TouchableOpacity style={styles.sheetCancelButton} onPress={onClose}>
+            <Text style={styles.sheetCancelText}>Annuler</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function PhotoSourceSheet({ visible, onClose, onCamera, onGallery }) {
+  return (
+    <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={onClose} />
+        <View style={styles.bottomSheet}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>Ajouter une photo</Text>
+          <Text style={styles.sheetSubtitle}>
+            Choisissez une source pour votre photo
+          </Text>
+
+          <TouchableOpacity style={styles.sourceOption} onPress={onCamera}>
+            <View style={styles.sourceIconWrap}>
+              <Feather name="camera" size={20} color="#119C90" />
+            </View>
+            <View style={styles.sourceTextWrap}>
+              <Text style={styles.sourceTitle}>Prendre une photo</Text>
+              <Text style={styles.sourceSubtitle}>Utiliser l'appareil photo</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.sourceOption} onPress={onGallery}>
+            <View style={styles.sourceIconWrap}>
+              <Feather name="image" size={20} color="#119C90" />
+            </View>
+            <View style={styles.sourceTextWrap}>
+              <Text style={styles.sourceTitle}>Choisir depuis la galerie</Text>
+              <Text style={styles.sourceSubtitle}>Selectionner depuis vos albums</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.sheetCancelButton} onPress={onClose}>
+            <Text style={styles.sheetCancelText}>Annuler</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function SelectField({ label, required, value, icon, placeholder, onPress, error }) {
+  return (
+    <View style={styles.fieldBlock}>
+      <Text style={styles.fieldLabel}>
+        {label} {required ? <Text style={styles.requiredMark}>*</Text> : null}
+      </Text>
+      <TouchableOpacity style={styles.selectField} onPress={onPress}>
+        <View style={styles.selectValueWrap}>
+          {icon}
+          <Text style={[styles.selectValue, !value && styles.placeholderText]}>
+            {value || placeholder}
+          </Text>
+        </View>
+        <Ionicons name="chevron-down" size={20} color="#4B5563" />
+      </TouchableOpacity>
+      <FieldError message={error} />
+    </View>
+  );
+}
+
+export default function CreateListingScreen({
+  navigation,
+  onCreateListing,
+  initialListing,
+  mode = "create",
+}) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
@@ -72,11 +145,38 @@ export default function CreateListingScreen({ navigation }) {
   const [condition, setCondition] = useState("");
   const [photos, setPhotos] = useState([]);
   const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [photoSheetVisible, setPhotoSheetVisible] = useState(false);
+  const [categorySheetVisible, setCategorySheetVisible] = useState(false);
+  const [conditionSheetVisible, setConditionSheetVisible] = useState(false);
 
-  const remainingPhotos = MAX_PHOTOS - photos.length;
   const titleCount = title.length;
   const isWeb = Platform.OS === "web";
+  const isEditing = mode === "edit" && initialListing;
+
+  const sanitizePriceInput = (text) => {
+    const normalizedText = text.replace(",", ".");
+    const numericOnly = normalizedText.replace(/[^0-9.]/g, "");
+    const parts = numericOnly.split(".");
+
+    if (parts.length <= 1) {
+      return numericOnly;
+    }
+
+    return `${parts[0]}.${parts.slice(1).join("")}`;
+  };
+
+  useEffect(() => {
+    if (!initialListing) {
+      return;
+    }
+
+    setTitle(initialListing.title || "");
+    setDescription(initialListing.description || "");
+    setPrice(initialListing.price || "");
+    setCategory(initialListing.category || "");
+    setCondition(initialListing.condition || "");
+    setPhotos(initialListing.photos || []);
+  }, [initialListing]);
 
   const isFormValid = useMemo(() => {
     return (
@@ -89,7 +189,7 @@ export default function CreateListingScreen({ navigation }) {
     );
   }, [category, condition, photos.length, price, title]);
 
-  const updateFieldError = (fieldName) => {
+  const clearFieldError = (fieldName) => {
     if (!errors[fieldName]) {
       return;
     }
@@ -100,34 +200,15 @@ export default function CreateListingScreen({ navigation }) {
     }));
   };
 
-  const pickImageSource = () => {
-    if (remainingPhotos <= 0) {
-      Alert.alert("Limite atteinte", "Vous ne pouvez pas ajouter plus de 5 photos.");
-      return;
-    }
-
-    // Sur le web, on ouvre directement le selecteur de fichiers car Alert avec
-    // choix multiples n'offre pas une bonne experience comme sur mobile natif.
-    if (isWeb) {
-      openGallery();
-      return;
-    }
-
-    Alert.alert("Ajouter des photos", "Choisissez une source pour votre annonce.", [
-      { text: "Annuler", style: "cancel" },
-      { text: "Camera", onPress: openCamera },
-      { text: "Galerie", onPress: openGallery },
-    ]);
-  };
-
   const requestCameraPermission = async () => {
+    if (isWeb) {
+      return true;
+    }
+
     const permission = await ImagePicker.requestCameraPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert(
-        "Permission requise",
-        "Autorisez l'acces a la camera pour prendre une photo."
-      );
+      Alert.alert("Permission requise", "Autorisez l'acces a la camera.");
       return false;
     }
 
@@ -135,13 +216,14 @@ export default function CreateListingScreen({ navigation }) {
   };
 
   const requestGalleryPermission = async () => {
+    if (isWeb) {
+      return true;
+    }
+
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert(
-        "Permission requise",
-        "Autorisez l'acces a la galerie pour choisir une photo."
-      );
+      Alert.alert("Permission requise", "Autorisez l'acces a la galerie.");
       return false;
     }
 
@@ -153,8 +235,6 @@ export default function CreateListingScreen({ navigation }) {
       return;
     }
 
-    // Coupe la selection pour garantir la limite de 5 photos, meme si l'OS
-    // retourne plus d'elements que prevu.
     setPhotos((currentPhotos) => {
       const availableSlots = MAX_PHOTOS - currentPhotos.length;
       const nextPhotos = assets
@@ -164,10 +244,17 @@ export default function CreateListingScreen({ navigation }) {
       return [...currentPhotos, ...nextPhotos];
     });
 
-    updateFieldError("photos");
+    clearFieldError("photos");
   };
 
   const openCamera = async () => {
+    setPhotoSheetVisible(false);
+
+    if (photos.length >= MAX_PHOTOS) {
+      Alert.alert("Limite atteinte", "Vous ne pouvez pas ajouter plus de 5 photos.");
+      return;
+    }
+
     const granted = await requestCameraPermission();
 
     if (!granted) {
@@ -178,7 +265,7 @@ export default function CreateListingScreen({ navigation }) {
       mediaTypes: IMAGE_MEDIA_TYPE,
       allowsEditing: true,
       aspect: [4, 4],
-      quality: 0.8,
+      quality: 0.85,
     });
 
     if (!result.canceled) {
@@ -187,6 +274,13 @@ export default function CreateListingScreen({ navigation }) {
   };
 
   const openGallery = async () => {
+    setPhotoSheetVisible(false);
+
+    if (photos.length >= MAX_PHOTOS) {
+      Alert.alert("Limite atteinte", "Vous ne pouvez pas ajouter plus de 5 photos.");
+      return;
+    }
+
     const granted = await requestGalleryPermission();
 
     if (!granted) {
@@ -196,8 +290,8 @@ export default function CreateListingScreen({ navigation }) {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: IMAGE_MEDIA_TYPE,
       allowsMultipleSelection: true,
-      selectionLimit: remainingPhotos,
-      quality: 0.8,
+      selectionLimit: MAX_PHOTOS - photos.length,
+      quality: 0.85,
     });
 
     if (!result.canceled) {
@@ -215,6 +309,10 @@ export default function CreateListingScreen({ navigation }) {
 
     if (!title.trim()) {
       nextErrors.title = "Le titre est obligatoire.";
+    }
+
+    if (!description.trim()) {
+      nextErrors.description = "La description est obligatoire.";
     }
 
     if (!normalizedPrice) {
@@ -239,28 +337,27 @@ export default function CreateListingScreen({ navigation }) {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handlePublish = async () => {
+  const handlePublish = () => {
     if (!validateForm()) {
       return;
     }
 
-    setIsSubmitting(true);
-
     const normalizedPrice = price.replace(",", ".").trim();
     const listingPayload = {
+      id: initialListing?.id || `${Date.now()}`,
       title: title.trim(),
       description: description.trim(),
       price: normalizedPrice,
       category,
       condition,
       photos: photos.map((photo) => ({
+        id: photo.id,
         uri: photo.uri,
         name: photo.name,
         type: photo.type,
       })),
     };
 
-    // On construit un vrai FormData comme si l'annonce partait vers une API.
     const formData = new FormData();
     formData.append("title", listingPayload.title);
     formData.append("description", listingPayload.description);
@@ -279,401 +376,602 @@ export default function CreateListingScreen({ navigation }) {
     console.log("Annonce simulee :", listingPayload);
     console.log("FormData creee avec", listingPayload.photos.length, "photo(s).");
 
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    setIsSubmitting(false);
-    navigation.navigate("Success");
+    onCreateListing(listingPayload);
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View style={styles.screen}>
-        <ScrollView
-          contentContainerStyle={styles.contentContainer}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.safeArea}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={styles.screen}>
           <View style={styles.header}>
-            <Text style={styles.overline}>e-joutia</Text>
-            <Text style={styles.pageTitle}>Publier une annonce</Text>
-            <Text style={styles.pageSubtitle}>
-              Creez une fiche claire et attractive pour vendre plus vite.
-            </Text>
-          </View>
-
-          <View style={styles.card}>
-            <View style={styles.sectionHeader}>
-              <View>
-                <Text style={styles.sectionTitle}>Photos du produit</Text>
-                <Text style={styles.sectionSubtitle}>
-                  Ajoutez jusqu'a 5 photos pour rassurer les acheteurs.
-                </Text>
-              </View>
-              <Text style={styles.counterText}>{photos.length}/5 photos</Text>
-            </View>
-
-            <TouchableOpacity style={styles.addPhotoButton} onPress={pickImageSource}>
-              <Text style={styles.addPhotoIcon}>+</Text>
-              <View style={styles.addPhotoTextBlock}>
-                <Text style={styles.addPhotoTitle}>Ajouter des photos</Text>
-                <Text style={styles.addPhotoSubtitle}>
-                  {isWeb ? "Ouvrir la galerie du navigateur" : "Camera ou galerie"}
-                </Text>
-              </View>
+            <TouchableOpacity
+              style={styles.headerIconButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={24} color="#0F172A" />
             </TouchableOpacity>
 
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.photoRow}
-            >
-              {photos.map((photo) => (
-                <View key={photo.id} style={styles.photoCard}>
-                  <Image source={{ uri: photo.uri }} style={styles.photoPreview} />
-                  <TouchableOpacity
-                    style={styles.removePhotoButton}
-                    onPress={() => removePhoto(photo.id)}
-                  >
-                    <Text style={styles.removePhotoText}>X</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </ScrollView>
-
-            <FieldError message={errors.photos} />
+            <Text style={styles.headerTitle}>
+              {isEditing ? "Modifier l'annonce" : "Publier une annonce"}
+            </Text>
+            <View style={styles.headerSpacer} />
           </View>
 
-          <View style={styles.card}>
-            <View style={styles.fieldHeader}>
-              <Text style={styles.label}>Titre</Text>
-              <Text style={styles.inlineCounter}>{titleCount}/{MAX_TITLE_LENGTH}</Text>
-            </View>
-            <TextInput
-              value={title}
-              onChangeText={(text) => {
-                setTitle(text.slice(0, MAX_TITLE_LENGTH));
-                updateFieldError("title");
-              }}
-              placeholder="Ex: Veste en cuir noire"
-              placeholderTextColor="#9CA3AF"
-              style={styles.input}
-              maxLength={MAX_TITLE_LENGTH}
-            />
-            <FieldError message={errors.title} />
-
-            <Text style={styles.label}>Description detaillee</Text>
-            <TextInput
-              value={description}
-              onChangeText={setDescription}
-              placeholder="Precisez l'etat, la marque, la taille ou toute information utile."
-              placeholderTextColor="#9CA3AF"
-              style={[styles.input, styles.textArea]}
-              multiline
-              textAlignVertical="top"
-            />
-
-            <Text style={styles.label}>Prix</Text>
-            <TextInput
-              value={price}
-              onChangeText={(text) => {
-                setPrice(text);
-                updateFieldError("price");
-              }}
-              placeholder="Ex: 250"
-              placeholderTextColor="#9CA3AF"
-              keyboardType="numeric"
-              style={styles.input}
-            />
-            <FieldError message={errors.price} />
-
-            <Text style={styles.label}>Categorie</Text>
-            <ChoiceGroup
-              options={categories}
-              value={category}
-              onChange={(selectedCategory) => {
-                setCategory(selectedCategory);
-                updateFieldError("category");
-              }}
-              placeholder="Selectionnez une categorie"
-            />
-            <FieldError message={errors.category} />
-
-            <Text style={styles.label}>Etat de l'objet</Text>
-            <ChoiceGroup
-              options={conditions}
-              value={condition}
-              onChange={(selectedCondition) => {
-                setCondition(selectedCondition);
-                updateFieldError("condition");
-              }}
-              placeholder="Selectionnez l'etat"
-            />
-            <FieldError message={errors.condition} />
-          </View>
-
-          <TouchableOpacity
-            onPress={handlePublish}
-            disabled={isSubmitting}
-            style={[
-              styles.publishButton,
-              (!isFormValid || isSubmitting) && styles.publishButtonDisabled,
-            ]}
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            {isSubmitting ? (
-              <View style={styles.loadingRow}>
-                <ActivityIndicator color="#FFFFFF" />
-                <Text style={[styles.publishButtonText, styles.loadingText]}>
-                  Publication en cours...
+            <View style={styles.photoCard}>
+              <View style={styles.photoHeaderRow}>
+                <Text style={styles.photoSectionTitle}>Photos de l'article</Text>
+                <Text style={styles.photoCounter}>
+                  {photos.length}/{MAX_PHOTOS}
                 </Text>
               </View>
-            ) : (
-              <Text style={styles.publishButtonText}>Publier</Text>
-            )}
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-    </KeyboardAvoidingView>
+              <Text style={styles.photoSectionSubtitle}>Ajoutez jusqu'a 5 photos</Text>
+
+              <View style={styles.photoGrid}>
+                {photos.map((photo) => (
+                  <View key={photo.id} style={styles.photoThumbWrap}>
+                    <Image source={{ uri: photo.uri }} style={styles.photoThumb} />
+                    <TouchableOpacity
+                      style={styles.removePhotoButton}
+                      onPress={() => removePhoto(photo.id)}
+                    >
+                      <Ionicons name="close" size={16} color="#0F172A" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+
+                {photos.length < MAX_PHOTOS ? (
+                  <TouchableOpacity
+                    style={styles.addPhotoTile}
+                    onPress={() => setPhotoSheetVisible(true)}
+                  >
+                    <View style={styles.addPhotoCircle}>
+                      <Ionicons name="add" size={26} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.addPhotoTileText}>Ajouter des photos</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              <View style={styles.actionRow}>
+                <TouchableOpacity style={styles.actionButton} onPress={openCamera}>
+                  <Feather name="camera" size={20} color="#119C90" />
+                  <Text style={styles.actionButtonText}>Prendre une photo</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.actionButton} onPress={openGallery}>
+                  <Feather name="image" size={20} color="#119C90" />
+                  <Text style={styles.actionButtonText}>Choisir depuis la galerie</Text>
+                </TouchableOpacity>
+              </View>
+
+              <FieldError message={errors.photos} />
+            </View>
+
+            <View style={styles.fieldBlock}>
+              <View style={styles.labelRow}>
+                <Text style={styles.fieldLabel}>
+                  Titre de l'annonce <Text style={styles.requiredMark}>*</Text>
+                </Text>
+                <Text style={styles.counterText}>{titleCount}/{MAX_TITLE_LENGTH}</Text>
+              </View>
+              <TextInput
+                value={title}
+                onChangeText={(text) => {
+                  setTitle(text.slice(0, MAX_TITLE_LENGTH));
+                  clearFieldError("title");
+                }}
+                placeholder="Canape 3 places gris clair"
+                placeholderTextColor="#90A0AE"
+                style={styles.input}
+                maxLength={MAX_TITLE_LENGTH}
+              />
+              <FieldError message={errors.title} />
+            </View>
+
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>
+                Description detaillee <Text style={styles.requiredMark}>*</Text>
+              </Text>
+              <TextInput
+                value={description}
+                onChangeText={(text) => {
+                  setDescription(text);
+                  clearFieldError("description");
+                }}
+                placeholder="Decrivez l'etat, la taille, la marque et les details utiles."
+                placeholderTextColor="#90A0AE"
+                style={[styles.input, styles.textArea]}
+                multiline
+                textAlignVertical="top"
+              />
+              <FieldError message={errors.description} />
+            </View>
+
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>
+                Prix <Text style={styles.requiredMark}>*</Text>
+              </Text>
+              <View style={styles.priceField}>
+                <TextInput
+                  value={price}
+                  onChangeText={(text) => {
+                    setPrice(sanitizePriceInput(text));
+                    clearFieldError("price");
+                  }}
+                  placeholder="1200"
+                  placeholderTextColor="#90A0AE"
+                  keyboardType={Platform.OS === "ios" ? "decimal-pad" : "numeric"}
+                  style={styles.priceInput}
+                />
+                <Text style={styles.currencyText}>EUR</Text>
+              </View>
+              <FieldError message={errors.price} />
+            </View>
+
+            <SelectField
+              label="Categorie"
+              required
+              value={category}
+              icon={<MaterialCommunityIcons name="shopping-outline" size={20} color="#119C90" />}
+              placeholder="Choisir une categorie"
+              onPress={() => setCategorySheetVisible(true)}
+              error={errors.category}
+            />
+
+            <SelectField
+              label="Etat de l'objet"
+              required
+              value={condition}
+              icon={<Ionicons name="star-outline" size={20} color="#119C90" />}
+              placeholder="Choisir un etat"
+              onPress={() => setConditionSheetVisible(true)}
+              error={errors.condition}
+            />
+
+            <View style={styles.infoBanner}>
+              <Ionicons name="information-circle-outline" size={22} color="#107D76" />
+              <Text style={styles.infoBannerText}>
+                Soyez precis dans votre description pour attirer plus d'acheteurs.
+              </Text>
+            </View>
+          </ScrollView>
+
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={[styles.publishButton, !isFormValid && styles.publishButtonMuted]}
+              onPress={handlePublish}
+            >
+              <Feather name="send" size={18} color="#FFFFFF" />
+              <Text style={styles.publishButtonText}>
+                {isEditing ? "Enregistrer les modifications" : "Publier l'annonce"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <PhotoSourceSheet
+          visible={photoSheetVisible}
+          onClose={() => setPhotoSheetVisible(false)}
+          onCamera={openCamera}
+          onGallery={openGallery}
+        />
+
+        <SelectSheet
+          visible={categorySheetVisible}
+          title="Choisir une categorie"
+          subtitle="Selectionnez la categorie la plus adaptee"
+          options={categories}
+          onClose={() => setCategorySheetVisible(false)}
+          onSelect={(value) => {
+            setCategory(value);
+            clearFieldError("category");
+            setCategorySheetVisible(false);
+          }}
+        />
+
+        <SelectSheet
+          visible={conditionSheetVisible}
+          title="Etat de l'objet"
+          subtitle="Selectionnez l'etat du produit"
+          options={conditions}
+          onClose={() => setConditionSheetVisible(false)}
+          onSelect={(value) => {
+            setCondition(value);
+            clearFieldError("condition");
+            setConditionSheetVisible(false);
+          }}
+        />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: {
+  safeArea: {
     flex: 1,
+    backgroundColor: "#F9FCFC",
   },
   screen: {
     flex: 1,
-    backgroundColor: "#F4F1EA",
-  },
-  contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 28,
-    paddingBottom: 40,
+    backgroundColor: "#F9FCFC",
   },
   header: {
-    marginBottom: 20,
-  },
-  overline: {
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    color: "#B45309",
-    marginBottom: 8,
-  },
-  pageTitle: {
-    fontSize: 30,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 8,
-  },
-  pageSubtitle: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: "#4B5563",
-  },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 18,
-    marginBottom: 18,
-    shadowColor: "#1F2937",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 4,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: "#6B7280",
-    maxWidth: 220,
-  },
-  counterText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#92400E",
-    backgroundColor: "#FEF3C7",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  addPhotoButton: {
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    borderColor: "#D97706",
-    borderRadius: 20,
-    padding: 16,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFF7ED",
+    justifyContent: "space-between",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEF4F6",
   },
-  addPhotoIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    textAlign: "center",
-    textAlignVertical: "center",
-    overflow: "hidden",
-    backgroundColor: "#F59E0B",
-    color: "#FFFFFF",
-    fontSize: 28,
-    fontWeight: "500",
-    marginRight: 14,
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  addPhotoTextBlock: {
-    flex: 1,
+  headerTitle: {
+    fontSize: 21,
+    fontWeight: "800",
+    color: "#0F172A",
   },
-  addPhotoTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 3,
+  headerSpacer: {
+    width: 36,
   },
-  addPhotoSubtitle: {
-    fontSize: 13,
-    color: "#6B7280",
-  },
-  photoRow: {
+  scrollContent: {
+    paddingHorizontal: 18,
     paddingTop: 16,
-    paddingBottom: 4,
+    paddingBottom: 140,
   },
   photoCard: {
-    width: 92,
-    height: 92,
-    borderRadius: 18,
-    marginRight: 12,
-    position: "relative",
-    overflow: "hidden",
-    backgroundColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 16,
+    marginBottom: 18,
+    shadowColor: "#0F3B4A",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.05,
+    shadowRadius: 18,
+    elevation: 2,
   },
-  photoPreview: {
+  photoHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  photoSectionTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  photoCounter: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#119C90",
+  },
+  photoSectionSubtitle: {
+    fontSize: 13,
+    color: "#607082",
+    marginBottom: 14,
+  },
+  photoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  photoThumbWrap: {
+    width: 82,
+    height: 82,
+    borderRadius: 18,
+    overflow: "hidden",
+    backgroundColor: "#E8EDF2",
+    position: "relative",
+  },
+  photoThumb: {
     width: "100%",
     height: "100%",
   },
   removePhotoButton: {
     position: "absolute",
-    top: 6,
     right: 6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    top: 6,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(17, 24, 39, 0.82)",
   },
-  removePhotoText: {
-    color: "#FFFFFF",
+  addPhotoTile: {
+    width: 82,
+    height: 82,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: "#B9DAD7",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  addPhotoCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#18B7AA",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  addPhotoTileText: {
     fontSize: 11,
+    lineHeight: 14,
     fontWeight: "700",
+    color: "#119C90",
+    textAlign: "center",
   },
-  fieldHeader: {
+  actionRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 14,
+  },
+  actionButton: {
+    flex: 1,
+    minHeight: 64,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#DDEBED",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  actionButtonText: {
+    color: "#119C90",
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  fieldBlock: {
+    marginBottom: 18,
+  },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  fieldLabel: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 10,
+  },
+  requiredMark: {
+    color: "#DB3A34",
+  },
+  counterText: {
+    fontSize: 13,
+    color: "#6B7B8B",
+  },
+  input: {
+    minHeight: 58,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#DAE5EA",
+    paddingHorizontal: 18,
+    fontSize: 16,
+    color: "#0F172A",
+  },
+  textArea: {
+    minHeight: 150,
+    paddingTop: 16,
+    paddingBottom: 16,
+    lineHeight: 25,
+  },
+  priceField: {
+    minHeight: 58,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#DAE5EA",
+    paddingHorizontal: 18,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  priceInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#0F172A",
+  },
+  currencyText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#4B5563",
+  },
+  selectField: {
+    minHeight: 58,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#DAE5EA",
+    paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  label: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#1F2937",
-    marginBottom: 10,
-    marginTop: 18,
-  },
-  inlineCounter: {
-    fontSize: 13,
-    color: "#9CA3AF",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: "#111827",
-    backgroundColor: "#F9FAFB",
-  },
-  textArea: {
-    minHeight: 120,
-  },
-  choiceGroup: {
+  selectValueWrap: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    marginBottom: 2,
+    alignItems: "center",
   },
-  choiceChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#FFFFFF",
-    marginRight: 10,
-    marginBottom: 10,
-  },
-  choiceChipActive: {
-    backgroundColor: "#111827",
-    borderColor: "#111827",
-  },
-  choiceText: {
-    fontSize: 14,
+  selectValue: {
+    fontSize: 16,
+    color: "#0F172A",
+    marginLeft: 10,
     fontWeight: "600",
-    color: "#374151",
   },
-  choiceTextActive: {
+  placeholderText: {
+    color: "#90A0AE",
+    fontWeight: "500",
+  },
+  infoBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EAF9F7",
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    marginTop: 6,
+  },
+  infoBannerText: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#107D76",
+  },
+  footer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    borderTopWidth: 1,
+    borderTopColor: "#EEF4F6",
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 22,
+  },
+  publishButton: {
+    minHeight: 60,
+    borderRadius: 20,
+    backgroundColor: "#18B7AA",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 10,
+    shadowColor: "#18B7AA",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.26,
+    shadowRadius: 20,
+    elevation: 5,
+  },
+  publishButtonMuted: {
+    opacity: 0.88,
+  },
+  publishButtonText: {
     color: "#FFFFFF",
-  },
-  helperText: {
-    width: "100%",
-    fontSize: 13,
-    color: "#9CA3AF",
-    marginTop: 2,
+    fontSize: 17,
+    fontWeight: "800",
   },
   errorText: {
     fontSize: 13,
     color: "#DC2626",
     marginTop: 8,
   },
-  publishButton: {
-    backgroundColor: "#0F766E",
-    borderRadius: 18,
-    minHeight: 58,
-    alignItems: "center",
-    justifyContent: "center",
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(15, 23, 42, 0.36)",
+  },
+  modalBackdrop: {
+    flex: 1,
+  },
+  bottomSheet: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingHorizontal: 18,
-    shadowColor: "#0F766E",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.24,
-    shadowRadius: 16,
-    elevation: 4,
+    paddingTop: 10,
+    paddingBottom: 24,
   },
-  publishButtonDisabled: {
-    opacity: 0.7,
+  sheetHandle: {
+    alignSelf: "center",
+    width: 48,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: "#D6DEE3",
+    marginBottom: 16,
   },
-  publishButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
+  sheetTitle: {
+    fontSize: 26,
     fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 4,
   },
-  loadingRow: {
+  sheetSubtitle: {
+    fontSize: 14,
+    color: "#607082",
+    marginBottom: 18,
+  },
+  sheetOption: {
+    minHeight: 58,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E7EEF2",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  sheetOptionText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  sourceOption: {
     flexDirection: "row",
     alignItems: "center",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E8EEF1",
+    padding: 14,
+    marginBottom: 12,
   },
-  loadingText: {
-    marginLeft: 10,
+  sourceIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: "#E7FAF8",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  sourceTextWrap: {
+    flex: 1,
+  },
+  sourceTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 2,
+  },
+  sourceSubtitle: {
+    fontSize: 13,
+    color: "#607082",
+  },
+  sheetCancelButton: {
+    minHeight: 56,
+    borderRadius: 18,
+    backgroundColor: "#EFF4F7",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 6,
+  },
+  sheetCancelText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A",
   },
 });
