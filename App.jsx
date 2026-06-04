@@ -60,16 +60,19 @@ function ListingCard({ listing, onEdit, onBoost }) {
   const mainPhoto = listing.photos[mainPhotoIndex] || listing.photos[0];
   const thumbCandidates = listing.photos.filter((_, index) => index !== mainPhotoIndex);
   const visibleThumbs = thumbCandidates.slice(0, 3);
+  const firstHiddenThumb = thumbCandidates[3];
   const extraCount = Math.max(0, thumbCandidates.length - 3);
-  const placeholderCount = Math.max(
-    0,
-    3 - visibleThumbs.length - (thumbCandidates.length > 3 ? 1 : 0)
-  );
+  const hasSecondaryPhotos = thumbCandidates.length > 0;
 
   return (
     <View style={styles.listingCard}>
       <View style={styles.listingMediaRow}>
-        <View style={styles.mainImageWrap}>
+        <View
+          style={[
+            styles.mainImageWrap,
+            !hasSecondaryPhotos && styles.mainImageWrapFull,
+          ]}
+        >
           <Image source={{ uri: mainPhoto?.uri }} style={styles.mainListingImage} />
           <View style={styles.statusBadge}>
             <View style={styles.statusDot} />
@@ -83,34 +86,42 @@ function ListingCard({ listing, onEdit, onBoost }) {
           ) : null}
         </View>
 
-        <View style={styles.thumbColumn}>
-          {visibleThumbs.map((photo, index) => (
-            <TouchableOpacity
-              key={photo.id || `${photo.uri}-${index}`}
-              onPress={() => {
-                const selectedIndex = listing.photos.findIndex(
-                  (listingPhoto) => listingPhoto.id === photo.id
-                );
-                if (selectedIndex >= 0) {
-                  setMainPhotoIndex(selectedIndex);
-                }
-              }}
-              style={styles.sideThumbButton}
-            >
-              <Image source={{ uri: photo.uri }} style={styles.sideThumb} />
-            </TouchableOpacity>
-          ))}
+        {hasSecondaryPhotos ? (
+          <View style={styles.thumbColumn}>
+            {visibleThumbs.map((photo, index) => (
+              <TouchableOpacity
+                key={photo.id || `${photo.uri}-${index}`}
+                onPress={() => {
+                  const selectedIndex = listing.photos.findIndex(
+                    (listingPhoto) => listingPhoto.id === photo.id
+                  );
+                  if (selectedIndex >= 0) {
+                    setMainPhotoIndex(selectedIndex);
+                  }
+                }}
+                style={styles.sideThumbButton}
+              >
+                <Image source={{ uri: photo.uri }} style={styles.sideThumb} />
+              </TouchableOpacity>
+            ))}
 
-          {thumbCandidates.length > 3 ? (
-            <View style={styles.extraThumbBox}>
-              <Text style={styles.extraThumbText}>+{extraCount}</Text>
-            </View>
-          ) : null}
-
-          {Array.from({ length: placeholderCount }).map((_, index) => (
-            <View key={`placeholder-${index}`} style={styles.sideThumbPlaceholder} />
-          ))}
-        </View>
+            {thumbCandidates.length > 3 ? (
+              <TouchableOpacity
+                style={styles.extraThumbBox}
+                onPress={() => {
+                  const selectedIndex = listing.photos.findIndex(
+                    (listingPhoto) => listingPhoto.id === firstHiddenThumb?.id
+                  );
+                  if (selectedIndex >= 0) {
+                    setMainPhotoIndex(selectedIndex);
+                  }
+                }}
+              >
+                <Text style={styles.extraThumbText}>+{extraCount}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.listingBody}>
@@ -602,6 +613,9 @@ const styles = StyleSheet.create({
     marginRight: 6,
     position: "relative",
   },
+  mainImageWrapFull: {
+    marginRight: 0,
+  },
   mainListingImage: {
     width: "100%",
     height: 190,
@@ -662,12 +676,6 @@ const styles = StyleSheet.create({
     height: 58,
     borderRadius: 12,
     backgroundColor: "#E7EDF1",
-  },
-  sideThumbPlaceholder: {
-    width: "100%",
-    height: 58,
-    borderRadius: 12,
-    backgroundColor: "#EFF4F7",
   },
   extraThumbBox: {
     width: "100%",

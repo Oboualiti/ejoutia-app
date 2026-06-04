@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import {
   Image,
+  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -70,6 +71,7 @@ export default function BoosterScreen({ navigation, listing }) {
   const photos = listing?.photos || [];
   const mainPhoto = photos[0];
   const thumbs = photos.slice(1, 4);
+  const [showHelp, setShowHelp] = useState(false);
   const durationOptions = useMemo(
     () => [
       {
@@ -109,7 +111,7 @@ export default function BoosterScreen({ navigation, listing }) {
 
           <Text style={styles.headerTitle}>Booster son annonce</Text>
 
-          <TouchableOpacity style={styles.helpButton}>
+          <TouchableOpacity style={styles.helpButton} onPress={() => setShowHelp(true)}>
             <Feather name="help-circle" size={20} color="#5B6470" />
           </TouchableOpacity>
         </View>
@@ -241,6 +243,42 @@ export default function BoosterScreen({ navigation, listing }) {
           </TouchableOpacity>
         </View>
       </View>
+
+      <Modal
+        visible={showHelp}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowHelp(false)}
+      >
+        <View style={styles.helpOverlay}>
+          <TouchableOpacity style={styles.helpBackdrop} onPress={() => setShowHelp(false)} />
+
+          <View style={styles.helpModal}>
+            <View style={styles.helpHeader}>
+              <View style={styles.helpIconWrap}>
+                <Feather name="help-circle" size={18} color="#18B7AA" />
+              </View>
+              <Text style={styles.helpTitle}>A quoi sert cette page ?</Text>
+            </View>
+
+            <Text style={styles.helpText}>
+              Cette page permet de sponsoriser votre annonce pour la rendre plus visible.
+            </Text>
+            <Text style={styles.helpText}>
+              Choisissez une duree de boost pour mettre votre annonce en avant pendant 1, 3 ou
+              7 jours.
+            </Text>
+            <Text style={styles.helpText}>
+              Une fois le boost active, l'annonce sera marquee comme sponsorisee et apparaitra
+              dans l'onglet Booster.
+            </Text>
+
+            <TouchableOpacity style={styles.helpCloseButton} onPress={() => setShowHelp(false)}>
+              <Text style={styles.helpCloseText}>Compris</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -286,6 +324,67 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#FFFFFF",
+  },
+  helpOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.22)",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  helpBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  helpModal: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 18,
+    shadowColor: "#0F3B4A",
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.12,
+    shadowRadius: 22,
+    elevation: 8,
+  },
+  helpHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  helpIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#E7FAF8",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  helpTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0F172A",
+    fontFamily: appFontFamily,
+  },
+  helpText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: "#607082",
+    marginBottom: 10,
+    fontFamily: appFontFamily,
+  },
+  helpCloseButton: {
+    marginTop: 8,
+    minHeight: 48,
+    borderRadius: 16,
+    backgroundColor: "#42B9B1",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  helpCloseText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    fontFamily: appFontFamily,
   },
   scrollContent: {
     paddingHorizontal: 18,
