@@ -1,8 +1,29 @@
 import React from "react";
-import { Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  Platform,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
-export default function SuccessScreen({ navigation, listing }) {
+const appFontFamily = Platform.select({
+  web: '"Inter", "Segoe UI", sans-serif',
+  default: undefined,
+});
+
+export default function SuccessScreen({ navigation, listing, mode = "publish", duration }) {
+  const isBoostMode = mode === "boost";
+  const title = isBoostMode ? "Votre annonce est boostee !" : "Votre annonce est en ligne !";
+  const subtitle = isBoostMode
+    ? `Votre annonce profite maintenant d'une meilleure visibilite${
+        duration?.label ? ` pendant ${duration.label}` : ""
+      }.`
+    : "Les acheteurs peuvent maintenant voir votre produit. Vous recevrez une notification des qu'un message arrive.";
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.screen}>
@@ -20,11 +41,8 @@ export default function SuccessScreen({ navigation, listing }) {
           <Feather name="star" size={18} color="#22B8AE" style={styles.sparkleRight} />
           <Feather name="star" size={14} color="#89DDD7" style={styles.sparkleLeft} />
 
-          <Text style={styles.title}>Votre annonce est en ligne !</Text>
-          <Text style={styles.subtitle}>
-            Les acheteurs peuvent maintenant voir votre produit. Vous recevrez une
-            notification des qu'un message arrive.
-          </Text>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
 
           {listing ? (
             <View style={styles.previewCard}>
@@ -53,10 +71,18 @@ export default function SuccessScreen({ navigation, listing }) {
 
           <TouchableOpacity
             style={styles.secondaryButton}
-            onPress={() => navigation.replace("CreateListing")}
+            onPress={() =>
+              isBoostMode ? navigation.replace("Home") : navigation.replace("CreateListing")
+            }
           >
-            <Feather name="rotate-ccw" size={18} color="#18B7AA" />
-            <Text style={styles.secondaryButtonText}>Publier une autre annonce</Text>
+            <Feather
+              name={isBoostMode ? "layout" : "rotate-ccw"}
+              size={18}
+              color="#18B7AA"
+            />
+            <Text style={styles.secondaryButtonText}>
+              {isBoostMode ? "Voir mes annonces" : "Publier une autre annonce"}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -127,7 +153,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#18B7AA",
     shadowColor: "#18B7AA",
     shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.30,
+    shadowOpacity: 0.3,
     shadowRadius: 26,
     elevation: 8,
   },
@@ -149,6 +175,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 10,
     maxWidth: 270,
+    fontFamily: appFontFamily,
   },
   subtitle: {
     fontSize: 14,
@@ -157,6 +184,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 26,
     maxWidth: 270,
+    fontFamily: appFontFamily,
   },
   previewCard: {
     width: "100%",
@@ -187,16 +215,19 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#0F172A",
     marginBottom: 3,
+    fontFamily: appFontFamily,
   },
   previewMeta: {
     fontSize: 11,
     color: "#607082",
     marginBottom: 4,
+    fontFamily: appFontFamily,
   },
   previewPrice: {
     fontSize: 16,
     fontWeight: "800",
     color: "#18B7AA",
+    fontFamily: appFontFamily,
   },
   footer: {
     paddingHorizontal: 22,
@@ -217,6 +248,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "800",
+    fontFamily: appFontFamily,
   },
   secondaryButton: {
     minHeight: 58,
@@ -233,5 +265,6 @@ const styles = StyleSheet.create({
     color: "#18B7AA",
     fontSize: 16,
     fontWeight: "800",
+    fontFamily: appFontFamily,
   },
 });

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import {
   Image,
   Platform,
@@ -28,10 +28,76 @@ function BoostBenefit({ icon, title, description, last }) {
   );
 }
 
+function DurationOption({
+  label,
+  description,
+  price,
+  selected,
+  badge,
+  onPress,
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={[
+        styles.durationOption,
+        selected && styles.durationOptionSelected,
+      ]}
+    >
+      <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
+        {selected ? <View style={styles.radioInner} /> : null}
+      </View>
+
+      <View style={styles.durationTextWrap}>
+        <View style={styles.durationTitleRow}>
+          <Text style={styles.durationTitle}>{label}</Text>
+          {badge ? (
+            <View style={styles.durationBadge}>
+              <Text style={styles.durationBadgeText}>{badge}</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={styles.durationDescription}>{description}</Text>
+      </View>
+
+      <Text style={styles.durationPrice}>{price}</Text>
+    </TouchableOpacity>
+  );
+}
+
 export default function BoosterScreen({ navigation, listing }) {
   const photos = listing?.photos || [];
   const mainPhoto = photos[0];
   const thumbs = photos.slice(1, 4);
+  const durationOptions = useMemo(
+    () => [
+      {
+        id: "1-day",
+        label: "1 jour",
+        description: "Ideal pour un coup de boost rapide.",
+        price: "1,99 EUR",
+      },
+      {
+        id: "3-days",
+        label: "3 jours",
+        description: "Plus de visibilite pendant 3 jours.",
+        price: "4,99 EUR",
+        badge: "Populaire",
+      },
+      {
+        id: "7-days",
+        label: "7 jours",
+        description: "Maximum de visibilite pendant 7 jours.",
+        price: "8,99 EUR",
+      },
+    ],
+    []
+  );
+  const [selectedDurationId, setSelectedDurationId] = useState("1-day");
+
+  const selectedDuration =
+    durationOptions.find((option) => option.id === selectedDurationId) || durationOptions[0];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -120,18 +186,56 @@ export default function BoosterScreen({ navigation, listing }) {
               last
             />
           </View>
+
+          <Text style={styles.sectionTitle}>Choisissez votre duree</Text>
+
+          {durationOptions.map((option) => (
+            <DurationOption
+              key={option.id}
+              selected={selectedDurationId === option.id}
+              label={option.label}
+              description={option.description}
+              price={option.price}
+              badge={option.badge}
+              onPress={() => setSelectedDurationId(option.id)}
+            />
+          ))}
+
+          <View style={styles.infoCard}>
+            <Ionicons
+              name="information-circle-outline"
+              size={20}
+              color="#0F9E93"
+              style={styles.infoIcon}
+            />
+            <View style={styles.infoTextWrap}>
+              <Text style={styles.infoTitle}>Bon a savoir</Text>
+              <Text style={styles.infoDescription}>
+                Votre annonce restera en ligne pendant la duree choisie et
+                redeviendra normale une fois le booster termine.
+              </Text>
+            </View>
+          </View>
         </ScrollView>
 
         <View style={styles.footer}>
           <View style={styles.totalRow}>
             <View>
               <Text style={styles.totalTitle}>Total</Text>
-              <Text style={styles.totalSubtitle}>Booster 1 jour</Text>
+              <Text style={styles.totalSubtitle}>Booster {selectedDuration.label}</Text>
             </View>
-            <Text style={styles.totalPrice}>1,99 EUR</Text>
+            <Text style={styles.totalPrice}>{selectedDuration.price}</Text>
           </View>
 
-          <TouchableOpacity style={styles.boostNowButton}>
+          <TouchableOpacity
+            style={styles.boostNowButton}
+            onPress={() =>
+              navigation.navigate("Boosting", {
+                listing,
+                duration: selectedDuration,
+              })
+            }
+          >
             <Feather name="zap" size={16} color="#FFFFFF" />
             <Text style={styles.boostNowText}>Booster maintenant</Text>
           </TouchableOpacity>
@@ -276,6 +380,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
     padding: 16,
+    marginBottom: 16,
     shadowColor: "#0F3B4A",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
@@ -288,6 +393,15 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#0F172A",
     marginBottom: 16,
+    fontFamily: appFontFamily,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 10,
+    marginTop: 2,
     fontFamily: appFontFamily,
   },
   benefitRow: {
@@ -320,6 +434,114 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     color: "#607082",
+    fontFamily: appFontFamily,
+  },
+  durationOption: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#E8EEF1",
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  durationOptionSelected: {
+    borderColor: "#18B7AA",
+    shadowColor: "#18B7AA",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.16,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  radioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: "#CBD5DF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    backgroundColor: "#FFFFFF",
+  },
+  radioOuterSelected: {
+    borderColor: "#18B7AA",
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#18B7AA",
+  },
+  durationTextWrap: {
+    flex: 1,
+  },
+  durationTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  durationTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0F172A",
+    fontFamily: appFontFamily,
+  },
+  durationBadge: {
+    marginLeft: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: "#E7FAF8",
+  },
+  durationBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#0F9E93",
+    fontFamily: appFontFamily,
+  },
+  durationDescription: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#607082",
+    fontFamily: appFontFamily,
+  },
+  durationPrice: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#18B7AA",
+    marginLeft: 10,
+    fontFamily: appFontFamily,
+  },
+  infoCard: {
+    marginTop: 8,
+    backgroundColor: "#DFF8F5",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  infoIcon: {
+    marginTop: 1,
+    marginRight: 10,
+  },
+  infoTextWrap: {
+    flex: 1,
+  },
+  infoTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#0F8B82",
+    marginBottom: 4,
+    fontFamily: appFontFamily,
+  },
+  infoDescription: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#0F8B82",
     fontFamily: appFontFamily,
   },
   footer: {

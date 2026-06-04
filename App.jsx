@@ -25,8 +25,34 @@ const appMonoWeightFamily = Platform.select({
   default: undefined,
 });
 
+function getBoostDurationDays(durationLabel) {
+  if (!durationLabel) {
+    return 0;
+  }
+
+  const parsed = parseInt(durationLabel, 10);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function isBoostExpired(listing) {
+  if (!listing?.isSponsored) {
+    return false;
+  }
+
+  if (!listing.boostExpiresAt) {
+    return false;
+  }
+
+  return new Date(listing.boostExpiresAt).getTime() <= Date.now();
+}
+
+function isBoostActive(listing) {
+  return Boolean(listing?.isSponsored) && !isBoostExpired(listing);
+}
+
 function ListingCard({ listing, onEdit, onBoost }) {
   const [mainPhotoIndex, setMainPhotoIndex] = useState(0);
+  const isSponsored = isBoostActive(listing);
   const createdAtLabel = listing.createdAtLabel || "24/05/2024";
   const views = listing.views ?? 0;
   const messages = listing.messages ?? 0;
@@ -49,6 +75,12 @@ function ListingCard({ listing, onEdit, onBoost }) {
             <View style={styles.statusDot} />
             <Text style={styles.statusBadgeText}>En ligne</Text>
           </View>
+          {isSponsored ? (
+            <View style={styles.sponsoredBadge}>
+              <Feather name="zap" size={11} color="#FFFFFF" />
+              <Text style={styles.sponsoredBadgeText}>Sponsorisee</Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.thumbColumn}>
@@ -134,6 +166,30 @@ function ListingCard({ listing, onEdit, onBoost }) {
 }
 
 function HomeScreen({ navigation, listings }) {
+  const [activeTab, setActiveTab] = useState("online");
+  const activeBoostListings = listings.filter(isBoostActive);
+  const expiredBoostListings = listings.filter(isBoostExpired);
+  const filteredListings =
+    activeTab === "booster"
+      ? activeBoostListings
+      : activeTab === "expired"
+        ? expiredBoostListings
+        : listings.filter((listing) => !isBoostExpired(listing));
+
+  const bannerTitle =
+    activeTab === "booster"
+      ? `${activeBoostListings.length} boosts actifs`
+      : activeTab === "expired"
+        ? `${expiredBoostListings.length} boosts expires`
+        : `${filteredListings.length} annonces en ligne`;
+
+  const bannerSubtitle =
+    activeTab === "booster"
+      ? "Retrouvez ici toutes vos annonces sponsorisees actives."
+      : activeTab === "expired"
+        ? "Consultez les boosts termines pour les relancer si besoin."
+        : "Vos annonces sont visibles par les acheteurs.";
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.listingsHeader}>
@@ -155,15 +211,23 @@ function HomeScreen({ navigation, listings }) {
       </View>
 
       <View style={styles.tabsRow}>
-        <TouchableOpacity style={styles.tabButton}>
-          <Text style={[styles.tabText, styles.tabTextActive]}>En ligne</Text>
-          <View style={styles.tabIndicator} />
+        <TouchableOpacity style={styles.tabButton} onPress={() => setActiveTab("online")}>
+          <Text style={[styles.tabText, activeTab === "online" && styles.tabTextActive]}>
+            En ligne
+          </Text>
+          {activeTab === "online" ? <View style={styles.tabIndicator} /> : null}
         </TouchableOpacity>
-        <TouchableOpacity style={styles.tabButton}>
-          <Text style={styles.tabText}>En attente</Text>
+        <TouchableOpacity style={styles.tabButton} onPress={() => setActiveTab("booster")}>
+          <Text style={[styles.tabText, activeTab === "booster" && styles.tabTextActive]}>
+            Booster
+          </Text>
+          {activeTab === "booster" ? <View style={styles.tabIndicator} /> : null}
         </TouchableOpacity>
-        <TouchableOpacity style={styles.tabButton}>
-          <Text style={styles.tabText}>Expirees</Text>
+        <TouchableOpacity style={styles.tabButton} onPress={() => setActiveTab("expired")}>
+          <Text style={[styles.tabText, activeTab === "expired" && styles.tabTextActive]}>
+            Expirees
+          </Text>
+          {activeTab === "expired" ? <View style={styles.tabIndicator} /> : null}
         </TouchableOpacity>
       </View>
 
@@ -176,15 +240,13 @@ function HomeScreen({ navigation, listings }) {
             <Feather name="check" size={14} color="#FFFFFF" />
           </View>
           <View style={styles.onlineBannerTextWrap}>
-            <Text style={styles.onlineBannerTitle}>{listings.length} annonces en ligne</Text>
-            <Text style={styles.onlineBannerSubtitle}>
-              Vos annonces sont visibles par les acheteurs.
-            </Text>
+            <Text style={styles.onlineBannerTitle}>{bannerTitle}</Text>
+            <Text style={styles.onlineBannerSubtitle}>{bannerSubtitle}</Text>
           </View>
         </View>
 
-        {listings.length ? (
-          listings.map((listing) => (
+        {filteredListings.length ? (
+          filteredListings.map((listing) => (
             <ListingCard
               key={listing.id}
               listing={listing}
@@ -204,9 +266,19 @@ function HomeScreen({ navigation, listings }) {
         ) : (
           <View style={styles.emptyState}>
             <Ionicons name="sparkles-outline" size={30} color="#12B5A5" />
-            <Text style={styles.emptyStateTitle}>Aucune annonce pour le moment</Text>
+            <Text style={styles.emptyStateTitle}>
+              {activeTab === "booster"
+                ? "Aucun boost actif"
+                : activeTab === "expired"
+                  ? "Aucun boost expire"
+                  : "Aucune annonce pour le moment"}
+            </Text>
             <Text style={styles.emptyStateText}>
-              Appuyez sur Publier pour ajouter votre premiere annonce.
+              {activeTab === "booster"
+                ? "Boostez une annonce pour la retrouver ici."
+                : activeTab === "expired"
+                  ? "Les boosts termines apparaitront dans cette section."
+                  : "Appuyez sur Publier pour ajouter votre premiere annonce."}
             </Text>
           </View>
         )}
@@ -296,6 +368,47 @@ export default function App() {
     );
   }
 
+  if (route.name === "Boosting") {
+    return (
+      <PublishingScreen
+        navigation={navigation}
+        listing={route.params.listing}
+        mode="boost"
+        duration={route.params.duration}
+        onComplete={(listing) =>
+          {
+            const boostedListing = {
+              ...listing,
+              isSponsored: true,
+              boostedDurationLabel: route.params.duration?.label || null,
+              boostExpiresAt: new Date(
+                Date.now() +
+                  getBoostDurationDays(route.params.duration?.label) * 24 * 60 * 60 * 1000
+              ).toISOString(),
+            };
+
+            setLastPublishedListing(boostedListing);
+            setListings((currentListings) =>
+              currentListings.map((currentListing) =>
+                currentListing.id === boostedListing.id
+                  ? {
+                      ...currentListing,
+                      ...boostedListing,
+                    }
+                  : currentListing
+              )
+            );
+
+            navigation.replace("BoostSuccess", {
+              listing: boostedListing,
+              duration: route.params.duration,
+            });
+          }
+        }
+      />
+    );
+  }
+
   if (route.name === "Booster") {
     return (
       <BoosterScreen
@@ -310,6 +423,17 @@ export default function App() {
       <SuccessScreen
         navigation={navigation}
         listing={route.params.listing || lastPublishedListing}
+      />
+    );
+  }
+
+  if (route.name === "BoostSuccess") {
+    return (
+      <SuccessScreen
+        navigation={navigation}
+        listing={route.params.listing || lastPublishedListing}
+        mode="boost"
+        duration={route.params.duration}
       />
     );
   }
@@ -505,6 +629,24 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "800",
     color: "#0F172A",
+    fontFamily: appFontFamily,
+  },
+  sponsoredBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(24, 183, 170, 0.94)",
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  sponsoredBadgeText: {
+    marginLeft: 4,
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#FFFFFF",
     fontFamily: appFontFamily,
   },
   sideThumbButton: {

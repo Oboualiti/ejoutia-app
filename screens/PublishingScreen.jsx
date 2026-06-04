@@ -1,6 +1,11 @@
-import React, { useEffect, useState } from "react";
-import { SafeAreaView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { Platform, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
+
+const appFontFamily = Platform.select({
+  web: '"Inter", "Segoe UI", sans-serif',
+  default: undefined,
+});
 
 function StepLine({ label, done }) {
   return (
@@ -13,8 +18,38 @@ function StepLine({ label, done }) {
   );
 }
 
-export default function PublishingScreen({ navigation, listing, onComplete }) {
+export default function PublishingScreen({
+  navigation,
+  listing,
+  onComplete,
+  mode = "publish",
+  duration,
+}) {
   const [progress, setProgress] = useState(18);
+
+  const copy = useMemo(() => {
+    if (mode === "boost") {
+      return {
+        icon: "flash-outline",
+        title: "Boost de votre annonce...",
+        subtitle:
+          "Nous activons la mise en avant de votre annonce. Cela ne prend que quelques secondes.",
+        progressLabel: "Activation de la mise en avant",
+        steps: ["Annonce verifiee", "Placement prioritaire active", "Boost en ligne"],
+        successRoute: "BoostSuccess",
+      };
+    }
+
+    return {
+      icon: "sparkles-outline",
+      title: "Publication de votre annonce...",
+      subtitle:
+        "Nous mettons votre produit en ligne. Cela ne prend que quelques secondes.",
+      progressLabel: "Televersement des photos",
+      steps: ["Photos optimisees", "Description analysee", "Mise en ligne"],
+      successRoute: "Success",
+    };
+  }, [mode]);
 
   useEffect(() => {
     const steps = [34, 67, 100];
@@ -28,14 +63,17 @@ export default function PublishingScreen({ navigation, listing, onComplete }) {
         return;
       }
 
-      navigation.replace("Success", { listing });
+      navigation.replace(copy.successRoute, {
+        listing,
+        duration,
+      });
     }, 2500);
 
     return () => {
       timers.forEach((timer) => clearTimeout(timer));
       clearTimeout(finishTimer);
     };
-  }, [listing, navigation, onComplete]);
+  }, [copy.successRoute, duration, listing, navigation, onComplete]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -44,30 +82,28 @@ export default function PublishingScreen({ navigation, listing, onComplete }) {
           <View style={styles.ringBackdrop} />
           <View style={styles.ringOuter}>
             <View style={styles.ringInner}>
-              <Ionicons name="sparkles-outline" size={44} color="#FFFFFF" />
+              <Ionicons name={copy.icon} size={44} color="#FFFFFF" />
             </View>
           </View>
         </View>
 
-        <Text style={styles.title}>Publication de votre annonce...</Text>
-        <Text style={styles.subtitle}>
-          Nous mettons votre produit en ligne. Cela ne prend que quelques secondes.
-        </Text>
+        <Text style={styles.title}>{copy.title}</Text>
+        <Text style={styles.subtitle}>{copy.subtitle}</Text>
 
         <View style={styles.progressWrap}>
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${progress}%` }]} />
           </View>
           <View style={styles.progressRow}>
-            <Text style={styles.progressLabel}>Televersement des photos</Text>
+            <Text style={styles.progressLabel}>{copy.progressLabel}</Text>
             <Text style={styles.progressValue}>{progress}%</Text>
           </View>
         </View>
 
         <View style={styles.stepsWrap}>
-          <StepLine label="Photos optimisees" done={progress >= 34} />
-          <StepLine label="Description analysee" done={progress >= 67} />
-          <StepLine label="Mise en ligne" done={progress >= 100} />
+          <StepLine label={copy.steps[0]} done={progress >= 34} />
+          <StepLine label={copy.steps[1]} done={progress >= 67} />
+          <StepLine label={copy.steps[2]} done={progress >= 100} />
         </View>
       </View>
     </SafeAreaView>
@@ -128,6 +164,7 @@ const styles = StyleSheet.create({
     color: "#0F172A",
     textAlign: "center",
     marginBottom: 10,
+    fontFamily: appFontFamily,
   },
   subtitle: {
     fontSize: 14,
@@ -135,6 +172,7 @@ const styles = StyleSheet.create({
     color: "#607082",
     textAlign: "center",
     marginBottom: 28,
+    fontFamily: appFontFamily,
   },
   progressWrap: {
     width: "100%",
@@ -160,11 +198,13 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontSize: 12,
     color: "#607082",
+    fontFamily: appFontFamily,
   },
   progressValue: {
     fontSize: 12,
     fontWeight: "800",
     color: "#18B7AA",
+    fontFamily: appFontFamily,
   },
   stepsWrap: {
     width: "100%",
@@ -192,6 +232,7 @@ const styles = StyleSheet.create({
   stepLabel: {
     fontSize: 14,
     color: "#7A8896",
+    fontFamily: appFontFamily,
   },
   stepLabelDone: {
     color: "#0F172A",
