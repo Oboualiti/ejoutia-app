@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Platform, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Easing, Platform, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 
 const appFontFamily = Platform.select({
@@ -26,6 +26,9 @@ export default function PublishingScreen({
   duration,
 }) {
   const [progress, setProgress] = useState(18);
+  const ringScale = useRef(new Animated.Value(0.92)).current;
+  const ringLift = useRef(new Animated.Value(16)).current;
+  const fadeIn = useRef(new Animated.Value(0)).current;
 
   const copy = useMemo(() => {
     if (mode === "boost") {
@@ -52,6 +55,27 @@ export default function PublishingScreen({
   }, [mode]);
 
   useEffect(() => {
+    Animated.parallel([
+      Animated.spring(ringScale, {
+        toValue: 1,
+        friction: 7,
+        tension: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(ringLift, {
+        toValue: 0,
+        duration: 420,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeIn, {
+        toValue: 1,
+        duration: 360,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
+
     const steps = [34, 67, 100];
     const timers = steps.map((value, index) =>
       setTimeout(() => setProgress(value), 700 * (index + 1))
@@ -77,15 +101,23 @@ export default function PublishingScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.screen}>
-        <View style={styles.ringWrap}>
+      <Animated.View
+        style={[
+          styles.screen,
+          {
+            opacity: fadeIn,
+            transform: [{ translateY: ringLift }],
+          },
+        ]}
+      >
+        <Animated.View style={[styles.ringWrap, { transform: [{ scale: ringScale }] }]}>
           <View style={styles.ringBackdrop} />
           <View style={styles.ringOuter}>
             <View style={styles.ringInner}>
               <Ionicons name={copy.icon} size={44} color="#FFFFFF" />
             </View>
           </View>
-        </View>
+        </Animated.View>
 
         <Text style={styles.title}>{copy.title}</Text>
         <Text style={styles.subtitle}>{copy.subtitle}</Text>
@@ -105,7 +137,7 @@ export default function PublishingScreen({
           <StepLine label={copy.steps[1]} done={progress >= 67} />
           <StepLine label={copy.steps[2]} done={progress >= 100} />
         </View>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }

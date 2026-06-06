@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import {
+  Animated,
   Image,
+  Easing,
   Platform,
   SafeAreaView,
   StyleSheet,
@@ -23,6 +25,39 @@ export default function SuccessScreen({ navigation, listing, mode = "publish", d
         duration?.label ? ` pendant ${duration.label}` : ""
       }.`
     : "Les acheteurs peuvent maintenant voir votre produit. Vous recevrez une notification des qu'un message arrive.";
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+  const contentScale = useRef(new Animated.Value(0.88)).current;
+  const badgeScale = useRef(new Animated.Value(0.72)).current;
+  const badgeLift = useRef(new Animated.Value(18)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(badgeScale, {
+        toValue: 1,
+        friction: 6,
+        tension: 64,
+        useNativeDriver: true,
+      }),
+      Animated.timing(badgeLift, {
+        toValue: 0,
+        duration: 320,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.spring(contentScale, {
+        toValue: 1,
+        friction: 7,
+        tension: 62,
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentOpacity, {
+        toValue: 1,
+        duration: 340,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [badgeLift, badgeScale, contentOpacity, contentScale]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -31,12 +66,27 @@ export default function SuccessScreen({ navigation, listing, mode = "publish", d
         <View style={styles.glowSoftLeft} />
         <View style={styles.glowSoftRight} />
 
-        <View style={styles.content}>
-          <View style={styles.badgeWrap}>
+        <Animated.View
+          style={[
+            styles.content,
+            {
+              opacity: contentOpacity,
+              transform: [{ scale: contentScale }],
+            },
+          ]}
+        >
+          <Animated.View
+            style={[
+              styles.badgeWrap,
+              {
+                transform: [{ translateY: badgeLift }, { scale: badgeScale }],
+              },
+            ]}
+          >
             <View style={styles.successBadge}>
               <Ionicons name="checkmark" size={76} color="#FFFFFF" />
             </View>
-          </View>
+          </Animated.View>
 
           <Feather name="star" size={18} color="#22B8AE" style={styles.sparkleRight} />
           <Feather name="star" size={14} color="#89DDD7" style={styles.sparkleLeft} />
@@ -58,7 +108,7 @@ export default function SuccessScreen({ navigation, listing, mode = "publish", d
               </View>
             </View>
           ) : null}
-        </View>
+        </Animated.View>
 
         <View style={styles.footer}>
           <TouchableOpacity

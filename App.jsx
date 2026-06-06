@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
   Image,
+  Easing,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -32,6 +34,125 @@ function getBoostDurationDays(durationLabel) {
 
   const parsed = parseInt(durationLabel, 10);
   return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function getRouteTransition(screenName) {
+  switch (screenName) {
+    case "CreateListing":
+      return "push";
+    case "Publishing":
+      return "lift";
+    case "Success":
+    case "BoostSuccess":
+      return "spring";
+    case "Booster":
+      return "fade";
+    default:
+      return "fade";
+  }
+}
+
+function RouteTransition({ transition, children }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateX = useRef(new Animated.Value(24)).current;
+  const translateY = useRef(new Animated.Value(18)).current;
+  const scale = useRef(new Animated.Value(0.97)).current;
+
+  useEffect(() => {
+    opacity.setValue(0);
+    translateX.setValue(24);
+    translateY.setValue(18);
+    scale.setValue(0.97);
+
+    const animations = [
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 260,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ];
+
+    if (transition === "spring") {
+      animations.push(
+        Animated.spring(scale, {
+          toValue: 1,
+          friction: 7,
+          tension: 72,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 360,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        })
+      );
+    } else if (transition === "lift") {
+      animations.push(
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 320,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scale, {
+          toValue: 1,
+          duration: 320,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        })
+      );
+    } else if (transition === "push") {
+      animations.push(
+        Animated.timing(translateX, {
+          toValue: 0,
+          duration: 320,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scale, {
+          toValue: 1,
+          duration: 320,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        })
+      );
+    } else {
+      animations.push(
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 240,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scale, {
+          toValue: 1,
+          duration: 240,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        })
+      );
+    }
+
+    Animated.parallel(animations).start();
+  }, [opacity, scale, transition, translateX, translateY]);
+
+  return (
+    <Animated.View
+      style={{
+        flex: 1,
+        opacity,
+        transform: [
+          { translateX: transition === "push" ? translateX : 0 },
+          { translateY: transition === "push" ? 0 : translateY },
+          { scale },
+        ],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
 }
 
 function isBoostExpired(listing) {
@@ -213,7 +334,7 @@ function HomeScreen({ navigation, listings }) {
         <View style={styles.headerPublishWrap}>
           <TouchableOpacity
             style={styles.headerPublishButton}
-            onPress={() => navigation.navigate("CreateListing")}
+            onPress={() => navigation.navigate("CreateListing", {}, "push")}
           >
             <Ionicons name="add" size={22} color="#FFFFFF" />
           </TouchableOpacity>
@@ -264,13 +385,13 @@ function HomeScreen({ navigation, listings }) {
               onBoost={(selectedListing) =>
                 navigation.navigate("Booster", {
                   listing: selectedListing,
-                })
+                }, "fade")
               }
               onEdit={(selectedListing) =>
                 navigation.navigate("CreateListing", {
                   listing: selectedListing,
                   mode: "edit",
-                })
+                }, "push")
               }
             />
           ))
@@ -304,7 +425,7 @@ function HomeScreen({ navigation, listings }) {
         <View style={styles.publishNavWrap}>
           <TouchableOpacity
             style={styles.publishFab}
-            onPress={() => navigation.navigate("CreateListing")}
+            onPress={() => navigation.navigate("CreateListing", {}, "push")}
           >
             <Ionicons name="add" size={24} color="#FFFFFF" />
           </TouchableOpacity>
@@ -322,72 +443,78 @@ export default function App() {
 
   const navigation = useMemo(() => {
     return {
-      navigate: (screenName, params = {}) => setRoute({ name: screenName, params }),
-      replace: (screenName, params = {}) => setRoute({ name: screenName, params }),
-      goBack: () => setRoute({ name: "Home", params: {} }),
+      navigate: (screenName, params = {}, transition = getRouteTransition(screenName)) =>
+        setRoute({ name: screenName, params, transition }),
+      replace: (screenName, params = {}, transition = getRouteTransition(screenName)) =>
+        setRoute({ name: screenName, params, transition }),
+      goBack: () => setRoute({ name: "Home", params: {}, transition: "fade" }),
     };
   }, []);
 
   if (route.name === "CreateListing") {
     return (
-      <CreateListingScreen
-        navigation={navigation}
-        initialListing={route.params.listing || null}
-        mode={route.params.mode || "create"}
-        onCreateListing={(listing) => {
-          setLastPublishedListing(listing);
-          setListings((currentListings) => {
-            const existingListing = currentListings.find(
-              (currentListing) => currentListing.id === listing.id
-            );
-
-            if (existingListing) {
-              return currentListings.map((currentListing) =>
-                currentListing.id === listing.id
-                  ? {
-                      ...currentListing,
-                      ...listing,
-                    }
-                  : currentListing
+      <RouteTransition transition={route.transition || "push"}>
+        <CreateListingScreen
+          navigation={navigation}
+          initialListing={route.params.listing || null}
+          mode={route.params.mode || "create"}
+          onCreateListing={(listing) => {
+            setLastPublishedListing(listing);
+            setListings((currentListings) => {
+              const existingListing = currentListings.find(
+                (currentListing) => currentListing.id === listing.id
               );
-            }
 
-            return [
-              {
-                ...listing,
-                createdAtLabel: new Date().toLocaleDateString("fr-FR"),
-                views: 0,
-                messages: 0,
-                favorites: 0,
-              },
-              ...currentListings,
-            ];
-          });
-          navigation.navigate("Publishing", { listing });
-        }}
-      />
+              if (existingListing) {
+                return currentListings.map((currentListing) =>
+                  currentListing.id === listing.id
+                    ? {
+                        ...currentListing,
+                        ...listing,
+                      }
+                    : currentListing
+                );
+              }
+
+              return [
+                {
+                  ...listing,
+                  createdAtLabel: new Date().toLocaleDateString("fr-FR"),
+                  views: 0,
+                  messages: 0,
+                  favorites: 0,
+                },
+                ...currentListings,
+              ];
+            });
+            navigation.navigate("Publishing", { listing }, "lift");
+          }}
+        />
+      </RouteTransition>
     );
   }
 
   if (route.name === "Publishing") {
     return (
-      <PublishingScreen
-        navigation={navigation}
-        listing={route.params.listing}
-        onComplete={(listing) => navigation.replace("Success", { listing })}
-      />
+      <RouteTransition transition={route.transition || "lift"}>
+        <PublishingScreen
+          navigation={navigation}
+          listing={route.params.listing}
+          onComplete={(listing) => navigation.replace("Success", { listing }, "spring")}
+        />
+      </RouteTransition>
     );
   }
 
   if (route.name === "Boosting") {
     return (
-      <PublishingScreen
-        navigation={navigation}
-        listing={route.params.listing}
-        mode="boost"
-        duration={route.params.duration}
-        onComplete={(listing) =>
-          {
+      <RouteTransition transition={route.transition || "lift"}>
+        <PublishingScreen
+          navigation={navigation}
+          listing={route.params.listing}
+          mode="boost"
+          duration={route.params.duration}
+          onComplete={(listing) => {
             const boostedListing = {
               ...listing,
               isSponsored: true,
@@ -413,43 +540,53 @@ export default function App() {
             navigation.replace("BoostSuccess", {
               listing: boostedListing,
               duration: route.params.duration,
-            });
-          }
-        }
-      />
+            }, "spring");
+          }}
+        />
+      </RouteTransition>
     );
   }
 
   if (route.name === "Booster") {
     return (
-      <BoosterScreen
-        navigation={navigation}
-        listing={route.params.listing}
-      />
+      <RouteTransition transition={route.transition || "fade"}>
+        <BoosterScreen
+          navigation={navigation}
+          listing={route.params.listing}
+        />
+      </RouteTransition>
     );
   }
 
   if (route.name === "Success") {
     return (
-      <SuccessScreen
-        navigation={navigation}
-        listing={route.params.listing || lastPublishedListing}
-      />
+      <RouteTransition transition={route.transition || "spring"}>
+        <SuccessScreen
+          navigation={navigation}
+          listing={route.params.listing || lastPublishedListing}
+        />
+      </RouteTransition>
     );
   }
 
   if (route.name === "BoostSuccess") {
     return (
-      <SuccessScreen
-        navigation={navigation}
-        listing={route.params.listing || lastPublishedListing}
-        mode="boost"
-        duration={route.params.duration}
-      />
+      <RouteTransition transition={route.transition || "spring"}>
+        <SuccessScreen
+          navigation={navigation}
+          listing={route.params.listing || lastPublishedListing}
+          mode="boost"
+          duration={route.params.duration}
+        />
+      </RouteTransition>
     );
   }
 
-  return <HomeScreen navigation={navigation} listings={listings} />;
+  return (
+    <RouteTransition transition={route.transition || "fade"}>
+      <HomeScreen navigation={navigation} listings={listings} />
+    </RouteTransition>
+  );
 }
 
 const styles = StyleSheet.create({
