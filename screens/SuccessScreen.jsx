@@ -1,8 +1,8 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   Animated,
-  Image,
   Easing,
+  Image,
   Platform,
   SafeAreaView,
   StyleSheet,
@@ -17,6 +17,74 @@ const appFontFamily = Platform.select({
   default: undefined,
 });
 
+function ConfettiPiece({ left, size, delay, duration, color, rotateSeed }) {
+  const fall = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fall, {
+      toValue: 1,
+      duration,
+      delay,
+      easing: Easing.in(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  }, [delay, duration, fall]);
+
+  const translateY = fall.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-24, 700],
+  });
+  const rotate = fall.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", `${rotateSeed}deg`],
+  });
+  const opacity = fall.interpolate({
+    inputRange: [0, 0.55, 1],
+    outputRange: [1, 1, 0],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.confettiPiece,
+        {
+          left,
+          width: size,
+          height: Math.max(4, size - 2),
+          backgroundColor: color,
+          opacity,
+          transform: [{ translateY }, { rotate }],
+        },
+      ]}
+    />
+  );
+}
+
+function PreviewCard({ listing }) {
+  const mainPhoto = listing?.photos?.[0];
+  const metaLabel = [listing?.category, listing?.condition].filter(Boolean).join(" - ");
+
+  return (
+    <View style={styles.previewCard}>
+      {mainPhoto?.uri ? (
+        <Image source={{ uri: mainPhoto.uri }} style={styles.previewImage} />
+      ) : (
+        <View style={styles.previewImageFallback}>
+          <Ionicons name="images-outline" size={24} color="#18B7AA" />
+        </View>
+      )}
+
+      <View style={styles.previewBody}>
+        <Text style={styles.previewTitle} numberOfLines={2}>
+          {listing?.title || "Annonce"}
+        </Text>
+        <Text style={styles.previewMeta}>{metaLabel || "Categorie"}</Text>
+        <Text style={styles.previewPrice}>{listing?.price || "0"} EUR</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function SuccessScreen({ navigation, listing, mode = "publish", duration }) {
   const isBoostMode = mode === "boost";
   const title = isBoostMode ? "Votre annonce est boostee !" : "Votre annonce est en ligne !";
@@ -26,16 +94,41 @@ export default function SuccessScreen({ navigation, listing, mode = "publish", d
       }.`
     : "Les acheteurs peuvent maintenant voir votre produit. Vous recevrez une notification des qu'un message arrive.";
   const contentOpacity = useRef(new Animated.Value(0)).current;
-  const contentScale = useRef(new Animated.Value(0.88)).current;
-  const badgeScale = useRef(new Animated.Value(0.72)).current;
+  const contentScale = useRef(new Animated.Value(0.9)).current;
+  const badgeScale = useRef(new Animated.Value(0.01)).current;
   const badgeLift = useRef(new Animated.Value(18)).current;
+  const previewLift = useRef(new Animated.Value(14)).current;
+  const previewScale = useRef(new Animated.Value(0.94)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const badgeRotation = useRef(new Animated.Value(-30)).current;
+  const checkScale = useRef(new Animated.Value(0)).current;
+
+  const confetti = useMemo(
+    () =>
+      Array.from({ length: 18 }, (_, index) => ({
+        id: index,
+        left: 12 + ((index * 19) % 260),
+        size: 5 + (index % 3),
+        delay: (index % 6) * 70,
+        duration: 1400 + (index % 5) * 110,
+        color: ["#22C1C3", "#FDBB2D", "#FF6B6B", "#7C3AED", "#10B981"][index % 5],
+        rotateSeed: 360 + index * 22,
+      })),
+    []
+  );
 
   useEffect(() => {
     Animated.parallel([
       Animated.spring(badgeScale, {
         toValue: 1,
-        friction: 6,
-        tension: 64,
+        friction: 5,
+        tension: 50,
+        useNativeDriver: true,
+      }),
+      Animated.spring(badgeRotation, {
+        toValue: 0,
+        friction: 5,
+        tension: 50,
         useNativeDriver: true,
       }),
       Animated.timing(badgeLift, {
@@ -56,8 +149,54 @@ export default function SuccessScreen({ navigation, listing, mode = "publish", d
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
+      Animated.timing(previewLift, {
+        toValue: 0,
+        duration: 340,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(previewScale, {
+        toValue: 1,
+        friction: 7,
+        tension: 60,
+        useNativeDriver: true,
+      }),
+      Animated.spring(checkScale, {
+        toValue: 1,
+        friction: 4,
+        tension: 55,
+        delay: 350,
+        useNativeDriver: true,
+      }),
     ]).start();
-  }, [badgeLift, badgeScale, contentOpacity, contentScale]);
+
+    const floatLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: -8,
+          duration: 1400,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 1400,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    floatLoop.start();
+
+    return () => {
+      floatLoop.stop();
+    };
+  }, [badgeLift, badgeScale, badgeRotation, contentOpacity, contentScale, previewLift, previewScale, checkScale, floatAnim]);
+
+  const badgeRotStr = badgeRotation.interpolate({
+    inputRange: [-30, 0],
+    outputRange: ["-30deg", "0deg"],
+  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -65,6 +204,10 @@ export default function SuccessScreen({ navigation, listing, mode = "publish", d
         <View style={styles.glowMain} />
         <View style={styles.glowSoftLeft} />
         <View style={styles.glowSoftRight} />
+
+        {confetti.map((piece) => (
+          <ConfettiPiece key={piece.id} {...piece} />
+        ))}
 
         <Animated.View
           style={[
@@ -79,12 +222,18 @@ export default function SuccessScreen({ navigation, listing, mode = "publish", d
             style={[
               styles.badgeWrap,
               {
-                transform: [{ translateY: badgeLift }, { scale: badgeScale }],
+                transform: [
+                  { translateY: badgeLift },
+                  { scale: badgeScale },
+                  { rotate: badgeRotStr }
+                ],
               },
             ]}
           >
             <View style={styles.successBadge}>
-              <Ionicons name="checkmark" size={76} color="#FFFFFF" />
+              <Animated.View style={{ transform: [{ scale: checkScale }] }}>
+                <Ionicons name="checkmark" size={76} color="#FFFFFF" />
+              </Animated.View>
             </View>
           </Animated.View>
 
@@ -94,27 +243,24 @@ export default function SuccessScreen({ navigation, listing, mode = "publish", d
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>
 
-          {listing ? (
-            <View style={styles.previewCard}>
-              <Image source={{ uri: listing.photos[0]?.uri }} style={styles.previewImage} />
-              <View style={styles.previewBody}>
-                <Text style={styles.previewTitle} numberOfLines={2}>
-                  {listing.title}
-                </Text>
-                <Text style={styles.previewMeta}>
-                  {listing.category} - {listing.condition}
-                </Text>
-                <Text style={styles.previewPrice}>{listing.price} EUR</Text>
-              </View>
-            </View>
-          ) : null}
+          <Animated.View
+            style={[
+              styles.previewWrapper,
+              {
+                opacity: contentOpacity,
+                transform: [
+                  { translateY: Animated.add(previewLift, floatAnim) },
+                  { scale: previewScale }
+                ],
+              },
+            ]}
+          >
+            <PreviewCard listing={listing} />
+          </Animated.View>
         </Animated.View>
 
         <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => navigation.navigate("Home")}
-          >
+          <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate("Home")}>
             <MaterialCommunityIcons name="home-outline" size={18} color="#FFFFFF" />
             <Text style={styles.primaryButtonText}>Retour a l'accueil</Text>
           </TouchableOpacity>
@@ -125,11 +271,7 @@ export default function SuccessScreen({ navigation, listing, mode = "publish", d
               isBoostMode ? navigation.replace("Home") : navigation.replace("CreateListing")
             }
           >
-            <Feather
-              name={isBoostMode ? "layout" : "rotate-ccw"}
-              size={18}
-              color="#18B7AA"
-            />
+            <Feather name={isBoostMode ? "layout" : "rotate-ccw"} size={18} color="#18B7AA" />
             <Text style={styles.secondaryButtonText}>
               {isBoostMode ? "Voir mes annonces" : "Publier une autre annonce"}
             </Text>
@@ -177,6 +319,11 @@ const styles = StyleSheet.create({
     height: 132,
     borderRadius: 66,
     backgroundColor: "rgba(24, 183, 170, 0.11)",
+  },
+  confettiPiece: {
+    position: "absolute",
+    top: 0,
+    borderRadius: 999,
   },
   content: {
     flex: 1,
@@ -232,9 +379,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: "#607082",
     textAlign: "center",
-    marginBottom: 26,
-    maxWidth: 270,
+    marginBottom: 24,
+    maxWidth: 290,
     fontFamily: appFontFamily,
+  },
+  previewWrapper: {
+    width: "100%",
+    alignItems: "center",
   },
   previewCard: {
     width: "100%",
@@ -248,13 +399,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.09,
     shadowRadius: 18,
     elevation: 4,
-    maxWidth: 290,
+    maxWidth: 304,
   },
   previewImage: {
     width: 64,
     height: 64,
     borderRadius: 16,
     backgroundColor: "#E7EDF1",
+    marginRight: 12,
+  },
+  previewImageFallback: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    backgroundColor: "#EAF8F7",
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
   previewBody: {

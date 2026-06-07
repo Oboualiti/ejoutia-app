@@ -46,7 +46,7 @@ function getRouteTransition(screenName) {
     case "BoostSuccess":
       return "spring";
     case "Booster":
-      return "fade";
+      return "lift";
     default:
       return "fade";
   }
@@ -185,8 +185,57 @@ function ListingCard({ listing, onEdit, onBoost }) {
   const extraCount = Math.max(0, thumbCandidates.length - 3);
   const hasSecondaryPhotos = thumbCandidates.length > 0;
 
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(40)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const badgeScale = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 350,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    if (listing.isNew) {
+      Animated.spring(badgeScale, {
+        toValue: 1,
+        friction: 5,
+        tension: 40,
+        delay: 600,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [listing.isNew]);
+
   return (
-    <View style={styles.listingCard}>
+    <Animated.View
+      style={[
+        styles.listingCard,
+        {
+          opacity: fadeAnim,
+          transform: [
+            { translateY: slideAnim },
+            { scale: scaleAnim },
+          ],
+        },
+      ]}
+    >
       <View style={styles.listingMediaRow}>
         <View
           style={[
@@ -204,6 +253,17 @@ function ListingCard({ listing, onEdit, onBoost }) {
               <Feather name="zap" size={11} color="#FFFFFF" />
               <Text style={styles.sponsoredBadgeText}>Sponsorisee</Text>
             </View>
+          ) : null}
+          {listing.isNew ? (
+            <Animated.View
+              style={[
+                styles.newBadge,
+                isSponsored && { top: 38 },
+                { transform: [{ scale: badgeScale }] },
+              ]}
+            >
+              <Text style={styles.newBadgeText}>NOUVEAU</Text>
+            </Animated.View>
           ) : null}
         </View>
 
@@ -293,7 +353,7 @@ function ListingCard({ listing, onEdit, onBoost }) {
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -483,6 +543,7 @@ export default function App() {
                   views: 0,
                   messages: 0,
                   favorites: 0,
+                  isNew: true,
                 },
                 ...currentListings,
               ];
@@ -956,5 +1017,26 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.28,
     shadowRadius: 18,
     elevation: 5,
+  },
+  newBadge: {
+    position: "absolute",
+    right: 8,
+    top: 8,
+    zIndex: 10,
+    backgroundColor: "#18B7AA",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    shadowColor: "#18B7AA",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  newBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    fontFamily: appFontFamily,
   },
 });

@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
+  Easing,
   Image,
   Modal,
   Platform,
@@ -36,34 +38,64 @@ function DurationOption({
   selected,
   badge,
   onPress,
+  index,
 }) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(-20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 350,
+        delay: 350 + index * 80,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        friction: 7,
+        tension: 40,
+        delay: 350 + index * 80,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [index]);
+
   return (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={onPress}
-      style={[
-        styles.durationOption,
-        selected && styles.durationOptionSelected,
-      ]}
+    <Animated.View
+      style={{
+        opacity: fadeAnim,
+        transform: [{ translateX: slideAnim }],
+      }}
     >
-      <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
-        {selected ? <View style={styles.radioInner} /> : null}
-      </View>
-
-      <View style={styles.durationTextWrap}>
-        <View style={styles.durationTitleRow}>
-          <Text style={styles.durationTitle}>{label}</Text>
-          {badge ? (
-            <View style={styles.durationBadge}>
-              <Text style={styles.durationBadgeText}>{badge}</Text>
-            </View>
-          ) : null}
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={onPress}
+        style={[
+          styles.durationOption,
+          selected && styles.durationOptionSelected,
+        ]}
+      >
+        <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
+          {selected ? <View style={styles.radioInner} /> : null}
         </View>
-        <Text style={styles.durationDescription}>{description}</Text>
-      </View>
 
-      <Text style={styles.durationPrice}>{price}</Text>
-    </TouchableOpacity>
+        <View style={styles.durationTextWrap}>
+          <View style={styles.durationTitleRow}>
+            <Text style={styles.durationTitle}>{label}</Text>
+            {badge ? (
+              <View style={styles.durationBadge}>
+                <Text style={styles.durationBadgeText}>{badge}</Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={styles.durationDescription}>{description}</Text>
+        </View>
+
+        <Text style={styles.durationPrice}>{price}</Text>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -72,6 +104,17 @@ export default function BoosterScreen({ navigation, listing }) {
   const mainPhoto = photos[0];
   const thumbs = photos.slice(1, 4);
   const [showHelp, setShowHelp] = useState(false);
+  const introOpacity = useRef(new Animated.Value(0)).current;
+  const introLift = useRef(new Animated.Value(16)).current;
+  const summaryScale = useRef(new Animated.Value(0.92)).current;
+  const summaryLift = useRef(new Animated.Value(22)).current;
+  const benefitsOpacity = useRef(new Animated.Value(0)).current;
+  const benefitsLift = useRef(new Animated.Value(14)).current;
+  const optionsOpacity = useRef(new Animated.Value(0)).current;
+  const optionsLift = useRef(new Animated.Value(14)).current;
+  const footerOpacity = useRef(new Animated.Value(0)).current;
+  const footerLift = useRef(new Animated.Value(18)).current;
+
   const durationOptions = useMemo(
     () => [
       {
@@ -101,10 +144,115 @@ export default function BoosterScreen({ navigation, listing }) {
   const selectedDuration =
     durationOptions.find((option) => option.id === selectedDurationId) || durationOptions[0];
 
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(introOpacity, {
+        toValue: 1,
+        duration: 300,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(introLift, {
+        toValue: 0,
+        duration: 300,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.spring(summaryScale, {
+        toValue: 1,
+        friction: 7,
+        tension: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(summaryLift, {
+        toValue: 0,
+        duration: 340,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    const benefitsTimer = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(benefitsOpacity, {
+          toValue: 1,
+          duration: 260,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(benefitsLift, {
+          toValue: 0,
+          duration: 260,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, 180);
+
+    const optionsTimer = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(optionsOpacity, {
+          toValue: 1,
+          duration: 260,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(optionsLift, {
+          toValue: 0,
+          duration: 260,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, 320);
+
+    const footerTimer = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(footerOpacity, {
+          toValue: 1,
+          duration: 240,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(footerLift, {
+          toValue: 0,
+          duration: 240,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, 460);
+
+    return () => {
+      clearTimeout(benefitsTimer);
+      clearTimeout(optionsTimer);
+      clearTimeout(footerTimer);
+    };
+  }, [
+    benefitsLift,
+    benefitsOpacity,
+    footerLift,
+    footerOpacity,
+    introLift,
+    introOpacity,
+    optionsLift,
+    optionsOpacity,
+    summaryLift,
+    summaryScale,
+  ]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.screen}>
-        <View style={styles.header}>
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              opacity: introOpacity,
+              transform: [{ translateY: introLift }],
+            },
+          ]}
+        >
           <TouchableOpacity style={styles.headerIconButton} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={22} color="#0F172A" />
           </TouchableOpacity>
@@ -114,13 +262,21 @@ export default function BoosterScreen({ navigation, listing }) {
           <TouchableOpacity style={styles.helpButton} onPress={() => setShowHelp(true)}>
             <Feather name="help-circle" size={20} color="#5B6470" />
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.summaryCard}>
+          <Animated.View
+            style={[
+              styles.summaryCard,
+              {
+                opacity: introOpacity,
+                transform: [{ translateY: summaryLift }, { scale: summaryScale }],
+              },
+            ]}
+          >
             <View style={styles.summaryRow}>
               <Image source={{ uri: mainPhoto?.uri }} style={styles.summaryMainImage} />
 
@@ -164,9 +320,17 @@ export default function BoosterScreen({ navigation, listing }) {
                 </View>
               </View>
             </View>
-          </View>
+          </Animated.View>
 
-          <View style={styles.card}>
+          <Animated.View
+            style={[
+              styles.card,
+              {
+                opacity: benefitsOpacity,
+                transform: [{ translateY: benefitsLift }],
+              },
+            ]}
+          >
             <Text style={styles.cardTitle}>Pourquoi booster votre annonce ?</Text>
 
             <BoostBenefit
@@ -187,23 +351,49 @@ export default function BoosterScreen({ navigation, listing }) {
               description="Les annonces boostees sont en moyenne vendues 2x plus rapidement."
               last
             />
-          </View>
+          </Animated.View>
 
-          <Text style={styles.sectionTitle}>Choisissez votre duree</Text>
+          <Animated.Text
+            style={[
+              styles.sectionTitle,
+              {
+                opacity: optionsOpacity,
+                transform: [{ translateY: optionsLift }],
+              },
+            ]}
+          >
+            Choisissez votre duree
+          </Animated.Text>
 
-          {durationOptions.map((option) => (
-            <DurationOption
-              key={option.id}
-              selected={selectedDurationId === option.id}
-              label={option.label}
-              description={option.description}
-              price={option.price}
-              badge={option.badge}
-              onPress={() => setSelectedDurationId(option.id)}
-            />
-          ))}
+          <Animated.View
+            style={{
+              opacity: optionsOpacity,
+              transform: [{ translateY: optionsLift }],
+            }}
+          >
+            {durationOptions.map((option, index) => (
+              <DurationOption
+                key={option.id}
+                index={index}
+                selected={selectedDurationId === option.id}
+                label={option.label}
+                description={option.description}
+                price={option.price}
+                badge={option.badge}
+                onPress={() => setSelectedDurationId(option.id)}
+              />
+            ))}
+          </Animated.View>
 
-          <View style={styles.infoCard}>
+          <Animated.View
+            style={[
+              styles.infoCard,
+              {
+                opacity: optionsOpacity,
+                transform: [{ translateY: optionsLift }],
+              },
+            ]}
+          >
             <Ionicons
               name="information-circle-outline"
               size={20}
@@ -217,10 +407,18 @@ export default function BoosterScreen({ navigation, listing }) {
                 redeviendra normale une fois le booster termine.
               </Text>
             </View>
-          </View>
+          </Animated.View>
         </ScrollView>
 
-        <View style={styles.footer}>
+        <Animated.View
+          style={[
+            styles.footer,
+            {
+              opacity: footerOpacity,
+              transform: [{ translateY: footerLift }],
+            },
+          ]}
+        >
           <View style={styles.totalRow}>
             <View>
               <Text style={styles.totalTitle}>Total</Text>
@@ -241,7 +439,7 @@ export default function BoosterScreen({ navigation, listing }) {
             <Feather name="zap" size={16} color="#FFFFFF" />
             <Text style={styles.boostNowText}>Booster maintenant</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
 
       <Modal
@@ -327,7 +525,7 @@ const styles = StyleSheet.create({
   },
   helpOverlay: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.22)",
+    backgroundColor: "rgba(249, 252, 252, 0.82)",
     justifyContent: "center",
     paddingHorizontal: 24,
   },
@@ -338,7 +536,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
     padding: 18,
-    shadowColor: "#0F3B4A",
+    shadowColor: "#7FBFBA",
     shadowOffset: { width: 0, height: 14 },
     shadowOpacity: 0.12,
     shadowRadius: 22,

@@ -1,6 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
   Alert,
+  Easing,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -148,6 +150,14 @@ export default function CreateListingScreen({
   const [photoSheetVisible, setPhotoSheetVisible] = useState(false);
   const [categorySheetVisible, setCategorySheetVisible] = useState(false);
   const [conditionSheetVisible, setConditionSheetVisible] = useState(false);
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerLift = useRef(new Animated.Value(12)).current;
+  const heroOpacity = useRef(new Animated.Value(0)).current;
+  const heroScale = useRef(new Animated.Value(0.96)).current;
+  const fieldsOpacity = useRef(new Animated.Value(0)).current;
+  const fieldsLift = useRef(new Animated.Value(14)).current;
+  const footerOpacity = useRef(new Animated.Value(0)).current;
+  const footerLift = useRef(new Animated.Value(16)).current;
 
   const titleCount = title.length;
   const isWeb = Platform.OS === "web";
@@ -177,6 +187,74 @@ export default function CreateListingScreen({
     setCondition(initialListing.condition || "");
     setPhotos(initialListing.photos || []);
   }, [initialListing]);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(headerOpacity, {
+        toValue: 1,
+        duration: 260,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(headerLift, {
+        toValue: 0,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(heroOpacity, {
+        toValue: 1,
+        duration: 320,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(heroScale, {
+        toValue: 1,
+        friction: 8,
+        tension: 58,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    const fieldsTimer = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(fieldsOpacity, {
+          toValue: 1,
+          duration: 280,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(fieldsLift, {
+          toValue: 0,
+          duration: 280,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, 130);
+
+    const footerTimer = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(footerOpacity, {
+          toValue: 1,
+          duration: 240,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(footerLift, {
+          toValue: 0,
+          duration: 240,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, 260);
+
+    return () => {
+      clearTimeout(fieldsTimer);
+      clearTimeout(footerTimer);
+    };
+  }, [fieldsLift, fieldsOpacity, footerLift, footerOpacity, headerLift, headerOpacity, heroOpacity, heroScale]);
 
   const isFormValid = useMemo(() => {
     return (
@@ -386,7 +464,15 @@ export default function CreateListingScreen({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.screen}>
-          <View style={styles.header}>
+          <Animated.View
+            style={[
+              styles.header,
+              {
+                opacity: headerOpacity,
+                transform: [{ translateY: headerLift }],
+              },
+            ]}
+          >
             <TouchableOpacity
               style={styles.headerIconButton}
               onPress={() => navigation.goBack()}
@@ -394,18 +480,29 @@ export default function CreateListingScreen({
               <Ionicons name="arrow-back" size={24} color="#0F172A" />
             </TouchableOpacity>
 
-            <Text style={styles.headerTitle}>
-              {isEditing ? "Modifier l'annonce" : "Publier une annonce"}
-            </Text>
+            <View style={styles.headerTitleWrap}>
+              <Text style={styles.headerKicker}>Marketplace - Publier</Text>
+              <Text style={styles.headerTitle}>
+                {isEditing ? "Modifier l'annonce" : "Publier une annonce"}
+              </Text>
+            </View>
             <View style={styles.headerSpacer} />
-          </View>
+          </Animated.View>
 
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.photoCard}>
+            <Animated.View
+              style={[
+                styles.photoCard,
+                {
+                  opacity: heroOpacity,
+                  transform: [{ scale: heroScale }],
+                },
+              ]}
+            >
               <View style={styles.photoHeaderRow}>
                 <Text style={styles.photoSectionTitle}>Photos de l'article</Text>
                 <Text style={styles.photoCounter}>
@@ -453,8 +550,17 @@ export default function CreateListingScreen({
               </View>
 
               <FieldError message={errors.photos} />
-            </View>
+            </Animated.View>
 
+            <Animated.View
+              style={[
+                styles.formStack,
+                {
+                  opacity: fieldsOpacity,
+                  transform: [{ translateY: fieldsLift }],
+                },
+              ]}
+            >
             <View style={styles.fieldBlock}>
               <View style={styles.labelRow}>
                 <Text style={styles.fieldLabel}>
@@ -542,9 +648,18 @@ export default function CreateListingScreen({
                 Soyez precis dans votre description pour attirer plus d'acheteurs.
               </Text>
             </View>
+            </Animated.View>
           </ScrollView>
 
-          <View style={styles.footer}>
+          <Animated.View
+            style={[
+              styles.footer,
+              {
+                opacity: footerOpacity,
+                transform: [{ translateY: footerLift }],
+              },
+            ]}
+          >
             <TouchableOpacity
               style={[styles.publishButton, !isFormValid && styles.publishButtonMuted]}
               onPress={handlePublish}
@@ -554,7 +669,7 @@ export default function CreateListingScreen({
                 {isEditing ? "Enregistrer les modifications" : "Publier l'annonce"}
               </Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
 
         <PhotoSourceSheet
@@ -597,11 +712,11 @@ export default function CreateListingScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F9FCFC",
+    backgroundColor: "#F8FDFD",
   },
   screen: {
     flex: 1,
-    backgroundColor: "#F9FCFC",
+    backgroundColor: "#F8FDFD",
   },
   header: {
     flexDirection: "row",
@@ -609,7 +724,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#EEF4F6",
   },
@@ -621,24 +737,39 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 21,
+    fontSize: 19,
     fontWeight: "800",
     color: "#0F172A",
+  },
+  headerTitleWrap: {
+    flex: 1,
+    alignItems: "center",
+  },
+  headerKicker: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: "#18B7AA",
+    marginBottom: 2,
   },
   headerSpacer: {
     width: 36,
   },
   scrollContent: {
     paddingHorizontal: 18,
-    paddingTop: 16,
+    paddingTop: 14,
     paddingBottom: 140,
+  },
+  formStack: {
+    gap: 18,
   },
   photoCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
     padding: 16,
     marginBottom: 18,
-    shadowColor: "#0F3B4A",
+    shadowColor: "#7BBFB9",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -862,7 +993,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexDirection: "row",
     gap: 10,
-    shadowColor: "#18B7AA",
+    shadowColor: "#7BBFB9",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.26,
     shadowRadius: 20,
@@ -884,7 +1015,7 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(15, 23, 42, 0.36)",
+    backgroundColor: "rgba(248, 253, 253, 0.88)",
   },
   modalBackdrop: {
     flex: 1,
