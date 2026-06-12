@@ -9,11 +9,13 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   Pressable,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -158,6 +160,7 @@ export default function CreateListingScreen({
   initialListing,
   mode = "create",
 }) {
+  const { width } = useWindowDimensions();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
@@ -179,6 +182,7 @@ export default function CreateListingScreen({
 
   const titleCount = title.length;
   const isWeb = Platform.OS === "web";
+  const isCompactScreen = width < 390;
   const isEditing = mode === "edit" && initialListing;
 
   const sanitizePriceInput = (text) => {
@@ -497,6 +501,7 @@ export default function CreateListingScreen({
           <Animated.View
             style={[
               styles.header,
+              isCompactScreen && styles.headerCompact,
               {
                 opacity: headerOpacity,
                 transform: [{ translateY: headerLift }],
@@ -511,8 +516,10 @@ export default function CreateListingScreen({
             </TouchableOpacity>
 
             <View style={styles.headerTitleWrap}>
-              <Text style={styles.headerKicker}>Marketplace - Publier</Text>
-              <Text style={styles.headerTitle}>
+              <Text style={styles.headerKicker} numberOfLines={1}>
+                Marketplace - Publier
+              </Text>
+              <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit>
                 {isEditing ? "Modifier l'annonce" : "Publier une annonce"}
               </Text>
             </View>
@@ -567,15 +574,29 @@ export default function CreateListingScreen({
                 ) : null}
               </View>
 
-              <View style={styles.actionRow}>
-                <TouchableOpacity style={styles.actionButton} onPress={openCamera}>
+              <View style={[styles.actionRow, isCompactScreen && styles.actionRowCompact]}>
+                <TouchableOpacity
+                  style={[styles.actionButton, isCompactScreen && styles.actionButtonCompact]}
+                  onPress={openCamera}
+                >
                   <Feather name="camera" size={20} color="#119C90" />
-                  <Text style={styles.actionButtonText}>Prendre une photo</Text>
+                  <Text
+                    style={[styles.actionButtonText, isCompactScreen && styles.actionButtonTextCompact]}
+                  >
+                    Prendre une photo
+                  </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.actionButton} onPress={openGallery}>
+                <TouchableOpacity
+                  style={[styles.actionButton, isCompactScreen && styles.actionButtonCompact]}
+                  onPress={openGallery}
+                >
                   <Feather name="image" size={20} color="#119C90" />
-                  <Text style={styles.actionButtonText}>Choisir depuis la galerie</Text>
+                  <Text
+                    style={[styles.actionButtonText, isCompactScreen && styles.actionButtonTextCompact]}
+                  >
+                    Choisir depuis la galerie
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -754,10 +775,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 18,
-    paddingTop: 14,
+    paddingTop: Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 8 : 14,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#EEF4F6",
+  },
+  headerCompact: {
+    paddingHorizontal: 14,
   },
   headerIconButton: {
     width: 36,
@@ -778,7 +802,7 @@ const styles = StyleSheet.create({
   headerKicker: {
     fontSize: 10,
     fontWeight: "700",
-    letterSpacing: 1.2,
+    letterSpacing: 0.8,
     textTransform: "uppercase",
     color: "#18B7AA",
     marginBottom: 2,
@@ -886,6 +910,9 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 14,
   },
+  actionRowCompact: {
+    flexDirection: "column",
+  },
   actionButton: {
     flex: 1,
     minHeight: 64,
@@ -898,11 +925,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
   },
+  actionButtonCompact: {
+    justifyContent: "flex-start",
+    paddingHorizontal: 16,
+  },
   actionButtonText: {
     color: "#119C90",
     fontSize: 13,
     fontWeight: "700",
     textAlign: "center",
+  },
+  actionButtonTextCompact: {
+    flex: 1,
+    textAlign: "left",
   },
   fieldBlock: {
     marginBottom: 18,
