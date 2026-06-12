@@ -548,31 +548,31 @@ export default function CreateListingScreen({
               </View>
               <Text style={styles.photoSectionSubtitle}>Ajoutez jusqu'a 5 photos</Text>
 
-              <View style={styles.photoGrid}>
-                {photos.map((photo) => (
-                  <View key={photo.id} style={styles.photoThumbWrap}>
-                    <Image source={{ uri: photo.uri }} style={styles.photoThumb} />
-                    <TouchableOpacity
-                      style={styles.removePhotoButton}
-                      onPress={() => removePhoto(photo.id)}
-                    >
-                      <Ionicons name="close" size={16} color="#0F172A" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-
-                {photos.length < MAX_PHOTOS ? (
-                  <TouchableOpacity
-                    style={styles.addPhotoTile}
-                    onPress={() => setPhotoSheetVisible(true)}
-                  >
-                    <View style={styles.addPhotoCircle}>
-                      <Ionicons name="add" size={26} color="#FFFFFF" />
+              {photos.length ? (
+                <View style={styles.photoGrid}>
+                  {photos.map((photo) => (
+                    <View key={photo.id} style={styles.photoThumbWrap}>
+                      <Image source={{ uri: photo.uri }} style={styles.photoThumb} />
+                      <TouchableOpacity
+                        style={styles.removePhotoButton}
+                        onPress={() => removePhoto(photo.id)}
+                      >
+                        <Ionicons name="close" size={16} color="#0F172A" />
+                      </TouchableOpacity>
                     </View>
-                    <Text style={styles.addPhotoTileText}>Ajouter des photos</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.photoEmptyState}>
+                  <View style={styles.photoEmptyIconWrap}>
+                    <Ionicons name="images-outline" size={30} color="#18B7AA" />
+                  </View>
+                  <Text style={styles.photoEmptyTitle}>Aucune photo ajoutee</Text>
+                  <Text style={styles.photoEmptyText}>
+                    Prenez une photo ou choisissez-en une depuis votre galerie.
+                  </Text>
+                </View>
+              )}
 
               <View style={[styles.actionRow, isCompactScreen && styles.actionRowCompact]}>
                 <TouchableOpacity
@@ -855,6 +855,37 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 10,
   },
+  photoEmptyState: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#DDEBED",
+    backgroundColor: "#FBFEFE",
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoEmptyIconWrap: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: "#E7FAF8",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  photoEmptyTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 6,
+  },
+  photoEmptyText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#607082",
+    textAlign: "center",
+  },
   photoThumbWrap: {
     width: 82,
     height: 82,
@@ -877,33 +908,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.96)",
     alignItems: "center",
     justifyContent: "center",
-  },
-  addPhotoTile: {
-    width: 82,
-    height: 82,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    borderColor: "#B9DAD7",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 8,
-  },
-  addPhotoCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#18B7AA",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  addPhotoTileText: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: "700",
-    color: "#119C90",
-    textAlign: "center",
   },
   actionRow: {
     flexDirection: "row",
