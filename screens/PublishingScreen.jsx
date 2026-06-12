@@ -56,6 +56,40 @@ function PreviewCard({ listing }) {
   );
 }
 
+function SubmissionSummaryCard({ summary }) {
+  if (!summary) {
+    return null;
+  }
+
+  return (
+    <View style={styles.summaryCard}>
+      <View style={styles.summaryHeader}>
+        <Feather name="upload-cloud" size={15} color="#18B7AA" />
+        <Text style={styles.summaryTitle}>Simulation FormData</Text>
+      </View>
+
+      <Text style={styles.summaryText}>
+        {summary.totalParts} elements prepares pour l'envoi
+      </Text>
+
+      <View style={styles.summaryStatsRow}>
+        <View style={styles.summaryPill}>
+          <Text style={styles.summaryPillValue}>{summary.textFieldCount}</Text>
+          <Text style={styles.summaryPillLabel}>champs texte</Text>
+        </View>
+        <View style={styles.summaryPill}>
+          <Text style={styles.summaryPillValue}>{summary.photoCount}</Text>
+          <Text style={styles.summaryPillLabel}>photos</Text>
+        </View>
+      </View>
+
+      <Text style={styles.summaryFields}>
+        {summary.fieldLabels.join(" • ")}
+      </Text>
+    </View>
+  );
+}
+
 export default function PublishingScreen({
   navigation,
   listing,
@@ -306,6 +340,8 @@ export default function PublishingScreen({
             </View>
           </View>
 
+          <SubmissionSummaryCard summary={listing?.submissionSummary} />
+
           <View style={styles.stepsWrap}>
             <StepLine label={steps[0]} done={progressVal >= 34} />
             <StepLine label={steps[1]} done={progressVal >= 67} />
@@ -476,7 +512,7 @@ const styles = StyleSheet.create({
   },
   progressWrap: {
     width: "100%",
-    marginBottom: 30,
+    marginBottom: 18,
   },
   progressTrack: {
     height: 7,
@@ -504,6 +540,71 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
     color: "#18B7AA",
+    fontFamily: appFontFamily,
+  },
+  summaryCard: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: "#E3F1F0",
+    shadowColor: "#0F3B4A",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  summaryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  summaryTitle: {
+    marginLeft: 8,
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#0F172A",
+    fontFamily: appFontFamily,
+  },
+  summaryText: {
+    fontSize: 12,
+    color: "#607082",
+    marginBottom: 12,
+    fontFamily: appFontFamily,
+  },
+  summaryStatsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 10,
+  },
+  summaryPill: {
+    flex: 1,
+    backgroundColor: "#F5FBFB",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#E3F1F0",
+  },
+  summaryPillValue: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#18B7AA",
+    marginBottom: 2,
+    fontFamily: appFontFamily,
+  },
+  summaryPillLabel: {
+    fontSize: 11,
+    color: "#607082",
+    fontFamily: appFontFamily,
+  },
+  summaryFields: {
+    fontSize: 11,
+    lineHeight: 17,
+    color: "#7A8896",
     fontFamily: appFontFamily,
   },
   stepsWrap: {

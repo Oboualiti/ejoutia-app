@@ -444,6 +444,7 @@ export default function CreateListingScreen({
     }
 
     const normalizedPrice = price.replace(",", ".").trim();
+    const textFieldKeys = ["title", "description", "price", "category", "condition"];
     const listingPayload = {
       id: initialListing?.id || `${Date.now()}`,
       title: title.trim(),
@@ -457,6 +458,12 @@ export default function CreateListingScreen({
         name: photo.name,
         type: photo.type,
       })),
+      submissionSummary: {
+        textFieldCount: textFieldKeys.length,
+        photoCount: photos.length,
+        totalParts: textFieldKeys.length + photos.length,
+        fieldLabels: ["Titre", "Description", "Prix", "Categorie", "Etat"],
+      },
     };
 
     const formData = new FormData();
