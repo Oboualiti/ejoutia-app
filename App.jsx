@@ -16,6 +16,7 @@ import CreateListingScreen from "./screens/CreateListingScreen";
 import BoosterScreen from "./screens/BoosterScreen";
 import PublishingScreen from "./screens/PublishingScreen";
 import SuccessScreen from "./screens/SuccessScreen";
+import LandingScreen from "./screens/LandingScreen";
 
 const appFontFamily = Platform.select({
   web: '"Inter", "Segoe UI", sans-serif',
@@ -38,6 +39,8 @@ function getBoostDurationDays(durationLabel) {
 
 function getRouteTransition(screenName) {
   switch (screenName) {
+    case "Landing":
+      return "fade";
     case "CreateListing":
       return "push";
     case "Publishing":
@@ -385,7 +388,7 @@ function HomeScreen({ navigation, listings }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.listingsHeader}>
-        <TouchableOpacity style={styles.headerBackButton}>
+        <TouchableOpacity style={styles.headerBackButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={22} color="#0F172A" />
         </TouchableOpacity>
 
@@ -497,7 +500,7 @@ function HomeScreen({ navigation, listings }) {
 }
 
 export default function App() {
-  const [route, setRoute] = useState({ name: "Home", params: {} });
+  const [route, setRoute] = useState({ name: "Landing", params: {} });
   const [listings, setListings] = useState([]);
   const [lastPublishedListing, setLastPublishedListing] = useState(null);
 
@@ -507,7 +510,7 @@ export default function App() {
         setRoute({ name: screenName, params, transition }),
       replace: (screenName, params = {}, transition = getRouteTransition(screenName)) =>
         setRoute({ name: screenName, params, transition }),
-      goBack: () => setRoute({ name: "Home", params: {}, transition: "fade" }),
+      goBack: () => setRoute({ name: "Landing", params: {}, transition: "fade" }),
     };
   }, []);
 
@@ -643,9 +646,25 @@ export default function App() {
     );
   }
 
+  if (route.name === "Landing") {
+    return (
+      <RouteTransition transition={route.transition || "fade"}>
+        <LandingScreen navigation={navigation} />
+      </RouteTransition>
+    );
+  }
+
+  if (route.name === "Home") {
+    return (
+      <RouteTransition transition={route.transition || "fade"}>
+        <HomeScreen navigation={navigation} listings={listings} />
+      </RouteTransition>
+    );
+  }
+
   return (
     <RouteTransition transition={route.transition || "fade"}>
-      <HomeScreen navigation={navigation} listings={listings} />
+      <LandingScreen navigation={navigation} />
     </RouteTransition>
   );
 }

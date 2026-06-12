@@ -12,6 +12,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  Pressable,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -21,7 +22,10 @@ import { categories, conditions } from "../mock/options";
 
 const MAX_PHOTOS = 5;
 const MAX_TITLE_LENGTH = 50;
-const IMAGE_MEDIA_TYPE = ImagePicker.MediaTypeOptions?.Images || ["images"];
+const IMAGE_MEDIA_TYPE =
+  ImagePicker.MediaType?.Images ||
+  ImagePicker.MediaTypeOptions?.Images ||
+  ["images"];
 
 function buildPhotoFile(asset, index) {
   const uri = asset.uri;
@@ -46,9 +50,16 @@ function FieldError({ message }) {
 
 function SelectSheet({ visible, title, subtitle, options, onClose, onSelect }) {
   return (
-    <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={onClose} />
+    <Modal
+      transparent
+      visible={visible}
+      animationType="fade"
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay} pointerEvents="box-none">
+        <Pressable style={styles.modalBackdrop} onPress={onClose} />
         <View style={styles.bottomSheet}>
           <View style={styles.sheetHandle} />
           <Text style={styles.sheetTitle}>{title}</Text>
@@ -75,9 +86,16 @@ function SelectSheet({ visible, title, subtitle, options, onClose, onSelect }) {
 
 function PhotoSourceSheet({ visible, onClose, onCamera, onGallery }) {
   return (
-    <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={onClose} />
+    <Modal
+      transparent
+      visible={visible}
+      animationType="fade"
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay} pointerEvents="box-none">
+        <Pressable style={styles.modalBackdrop} onPress={onClose} />
         <View style={styles.bottomSheet}>
           <View style={styles.sheetHandle} />
           <Text style={styles.sheetTitle}>Ajouter une photo</Text>
@@ -308,6 +326,11 @@ export default function CreateListingScreen({
     return true;
   };
 
+  const openAfterSheetClose = (action) => {
+    setPhotoSheetVisible(false);
+    setTimeout(action, Platform.OS === "ios" ? 250 : 0);
+  };
+
   const pushAssets = (assets) => {
     if (!assets?.length) {
       return;
@@ -326,55 +349,55 @@ export default function CreateListingScreen({
   };
 
   const openCamera = async () => {
-    setPhotoSheetVisible(false);
-
     if (photos.length >= MAX_PHOTOS) {
       Alert.alert("Limite atteinte", "Vous ne pouvez pas ajouter plus de 5 photos.");
       return;
     }
 
-    const granted = await requestCameraPermission();
+    openAfterSheetClose(async () => {
+      const granted = await requestCameraPermission();
 
-    if (!granted) {
-      return;
-    }
+      if (!granted) {
+        return;
+      }
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: IMAGE_MEDIA_TYPE,
-      allowsEditing: true,
-      aspect: [4, 4],
-      quality: 0.85,
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: IMAGE_MEDIA_TYPE,
+        allowsEditing: true,
+        aspect: [4, 4],
+        quality: 0.85,
+      });
+
+      if (!result.canceled) {
+        pushAssets(result.assets);
+      }
     });
-
-    if (!result.canceled) {
-      pushAssets(result.assets);
-    }
   };
 
   const openGallery = async () => {
-    setPhotoSheetVisible(false);
-
     if (photos.length >= MAX_PHOTOS) {
       Alert.alert("Limite atteinte", "Vous ne pouvez pas ajouter plus de 5 photos.");
       return;
     }
 
-    const granted = await requestGalleryPermission();
+    openAfterSheetClose(async () => {
+      const granted = await requestGalleryPermission();
 
-    if (!granted) {
-      return;
-    }
+      if (!granted) {
+        return;
+      }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: IMAGE_MEDIA_TYPE,
-      allowsMultipleSelection: true,
-      selectionLimit: MAX_PHOTOS - photos.length,
-      quality: 0.85,
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: IMAGE_MEDIA_TYPE,
+        allowsMultipleSelection: true,
+        selectionLimit: MAX_PHOTOS - photos.length,
+        quality: 0.85,
+      });
+
+      if (!result.canceled) {
+        pushAssets(result.assets);
+      }
     });
-
-    if (!result.canceled) {
-      pushAssets(result.assets);
-    }
   };
 
   const removePhoto = (photoId) => {
@@ -1018,7 +1041,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(248, 253, 253, 0.88)",
   },
   modalBackdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
   bottomSheet: {
     backgroundColor: "#FFFFFF",
@@ -1027,6 +1050,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 10,
     paddingBottom: 24,
+    marginTop: "auto",
+    zIndex: 2,
+    elevation: 8,
   },
   sheetHandle: {
     alignSelf: "center",
