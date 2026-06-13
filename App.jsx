@@ -17,6 +17,7 @@ import BoosterScreen from "./screens/BoosterScreen";
 import PublishingScreen from "./screens/PublishingScreen";
 import SuccessScreen from "./screens/SuccessScreen";
 import LandingScreen from "./screens/LandingScreen";
+import { consumeCreateListingRecoveryPending } from "./screens/createListingDraftStorage";
 
 const appFontFamily = Platform.select({
   web: '"Inter", "Segoe UI", sans-serif',
@@ -503,6 +504,7 @@ export default function App() {
   const [route, setRoute] = useState({ name: "Landing", params: {} });
   const [listings, setListings] = useState([]);
   const [lastPublishedListing, setLastPublishedListing] = useState(null);
+  const [bootReady, setBootReady] = useState(false);
 
   const navigation = useMemo(() => {
     return {
@@ -513,6 +515,37 @@ export default function App() {
       goBack: () => setRoute({ name: "Landing", params: {}, transition: "fade" }),
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const restoreRecoveryRoute = async () => {
+      try {
+        const shouldRecoverCreateListing = await consumeCreateListingRecoveryPending();
+        if (!cancelled && shouldRecoverCreateListing) {
+          setRoute({
+            name: "CreateListing",
+            params: {},
+            transition: getRouteTransition("CreateListing"),
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setBootReady(true);
+        }
+      }
+    };
+
+    restoreRecoveryRoute();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!bootReady) {
+    return <SafeAreaView style={styles.safeArea} />;
+  }
 
   if (route.name === "CreateListing") {
     return (

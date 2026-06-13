@@ -21,6 +21,13 @@ import {
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { categories, conditions } from "../mock/options";
+import {
+  clearCreateListingDraft,
+  clearCreateListingRecoveryPending,
+  loadCreateListingDraft,
+  markCreateListingRecoveryPending,
+  saveCreateListingDraft,
+} from "./createListingDraftStorage";
 
 const MAX_PHOTOS = 5;
 const MAX_TITLE_LENGTH = 50;
@@ -171,6 +178,7 @@ export default function CreateListingScreen({
   const [photoSheetVisible, setPhotoSheetVisible] = useState(false);
   const [categorySheetVisible, setCategorySheetVisible] = useState(false);
   const [conditionSheetVisible, setConditionSheetVisible] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
   const headerOpacity = useRef(new Animated.Value(0)).current;
   const headerLift = useRef(new Animated.Value(12)).current;
   const heroOpacity = useRef(new Animated.Value(0)).current;
@@ -184,6 +192,7 @@ export default function CreateListingScreen({
   const isWeb = Platform.OS === "web";
   const isCompactScreen = width < 390;
   const isEditing = mode === "edit" && initialListing;
+  const isCreateMode = !isEditing;
 
   const sanitizePriceInput = (text) => {
     const normalizedText = text.replace(",", ".");
@@ -209,6 +218,84 @@ export default function CreateListingScreen({
     setCondition(initialListing.condition || "");
     setPhotos(initialListing.photos || []);
   }, [initialListing]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const restoreDraft = async () => {
+      if (!isCreateMode) {
+        setDraftReady(true);
+        return;
+      }
+
+      try {
+        const savedDraft = await loadCreateListingDraft();
+        if (!cancelled && savedDraft) {
+          setTitle(savedDraft.title || "");
+          setDescription(savedDraft.description || "");
+          setPrice(savedDraft.price || "");
+          setCategory(savedDraft.category || "");
+          setCondition(savedDraft.condition || "");
+          setPhotos(savedDraft.photos || []);
+        }
+      } finally {
+        if (!cancelled) {
+          setDraftReady(true);
+        }
+      }
+    };
+
+    restoreDraft();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isCreateMode]);
+
+  const currentDraft = useMemo(
+    () => ({
+      title,
+      description,
+      price,
+      category,
+      condition,
+      photos,
+    }),
+    [category, condition, description, photos, price, title]
+  );
+
+  const persistDraft = async (draftOverride = currentDraft) => {
+    if (!isCreateMode) {
+      return;
+    }
+
+    const hasContent =
+      draftOverride.title.trim() ||
+      draftOverride.description.trim() ||
+      draftOverride.price.trim() ||
+      draftOverride.category ||
+      draftOverride.condition ||
+      draftOverride.photos.length;
+
+    if (!hasContent) {
+      await clearCreateListingDraft();
+      return;
+    }
+
+    await saveCreateListingDraft(draftOverride);
+  };
+
+  useEffect(() => {
+    if (!draftReady || !isCreateMode) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      persistDraft().catch(() => {});
+    }, 180);
+
+    return () => clearTimeout(timeoutId);
+  }, [currentDraft, draftReady, isCreateMode]);
 
   useEffect(() => {
     Animated.parallel([
@@ -359,9 +446,13 @@ export default function CreateListingScreen({
     }
 
     openAfterSheetClose(async () => {
+      await persistDraft();
+      await markCreateListingRecoveryPending();
+
       const granted = await requestCameraPermission();
 
       if (!granted) {
+        await clearCreateListingRecoveryPending();
         return;
       }
 
@@ -371,6 +462,8 @@ export default function CreateListingScreen({
         aspect: [4, 4],
         quality: 0.85,
       });
+
+      await clearCreateListingRecoveryPending();
 
       if (!result.canceled) {
         pushAssets(result.assets);
@@ -488,6 +581,8 @@ export default function CreateListingScreen({
     console.log("Annonce simulee :", listingPayload);
     console.log("FormData creee avec", listingPayload.photos.length, "photo(s).");
 
+    clearCreateListingDraft().catch(() => {});
+    clearCreateListingRecoveryPending().catch(() => {});
     onCreateListing(listingPayload);
   };
 
