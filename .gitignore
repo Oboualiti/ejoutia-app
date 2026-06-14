@@ -1,8 +1,27 @@
 node_modules/
 .expo/
+.expo-shared/
 dist/
 web-build/
+coverage/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # OS / editor
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
+
+# Local env
+.env
+.env.local
+.env.*.local
+
+# Local reference copy
+ejoutia_commit-main/
+
+rapport
+native_docx_unzipped

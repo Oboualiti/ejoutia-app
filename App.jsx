@@ -701,7 +701,10 @@ const styles = StyleSheet.create({
   },
   listingsHeader: {
     backgroundColor: "#FFFFFF",
-    paddingTop: 14,
+    paddingTop: Platform.select({
+      android: 22,
+      default: 14,
+    }),
     paddingHorizontal: 18,
     paddingBottom: 12,
     flexDirection: "row",
