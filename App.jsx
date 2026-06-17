@@ -394,15 +394,7 @@ function HomeScreen({ navigation, listings }) {
 
         <Text style={styles.listingsHeaderTitle}>Mes annonces</Text>
 
-        <View style={styles.headerPublishWrap}>
-          <TouchableOpacity
-            style={styles.headerPublishButton}
-            onPress={() => navigation.navigate("CreateListing", {}, "push")}
-          >
-            <Ionicons name="add" size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerPublishLabel}>Publier</Text>
-        </View>
+        <View style={styles.headerSideSpacer} />
       </View>
 
       <View style={styles.tabsRow}>
@@ -503,6 +495,7 @@ export default function App() {
   const [route, setRoute] = useState({ name: "Landing", params: {} });
   const [listings, setListings] = useState([]);
   const [lastPublishedListing, setLastPublishedListing] = useState(null);
+  const [bootReady, setBootReady] = useState(false);
 
   const navigation = useMemo(() => {
     return {
@@ -513,6 +506,37 @@ export default function App() {
       goBack: () => setRoute({ name: "Landing", params: {}, transition: "fade" }),
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const restoreRecoveryRoute = async () => {
+      try {
+        const shouldRecoverCreateListing = await consumeCreateListingRecoveryPending();
+        if (!cancelled && shouldRecoverCreateListing) {
+          setRoute({
+            name: "CreateListing",
+            params: {},
+            transition: getRouteTransition("CreateListing"),
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setBootReady(true);
+        }
+      }
+    };
+
+    restoreRecoveryRoute();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!bootReady) {
+    return <SafeAreaView style={styles.safeArea} />;
+  }
 
   if (route.name === "CreateListing") {
     return (
@@ -676,7 +700,10 @@ const styles = StyleSheet.create({
   },
   listingsHeader: {
     backgroundColor: "#FFFFFF",
-    paddingTop: 14,
+    paddingTop: Platform.select({
+      android: 22,
+      default: 14,
+    }),
     paddingHorizontal: 18,
     paddingBottom: 12,
     flexDirection: "row",
@@ -696,27 +723,9 @@ const styles = StyleSheet.create({
     color: "#0F172A",
     fontFamily: appFontFamily,
   },
-  headerPublishWrap: {
-    alignItems: "center",
-  },
-  headerPublishButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#42B9B1",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#18B7AA",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
-    elevation: 4,
-  },
-  headerPublishLabel: {
-    marginTop: 4,
-    fontSize: 10,
-    color: "#0F172A",
-    fontFamily: appFontFamily,
+  headerSideSpacer: {
+    width: 36,
+    height: 36,
   },
   tabsRow: {
     backgroundColor: "#FFFFFF",
